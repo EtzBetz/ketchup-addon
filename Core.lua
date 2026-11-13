@@ -148,6 +148,7 @@ function K:BuildSnapshot()
         cl = class,
         lv = UnitLevel("player"),
         fa = UnitFactionGroup("player"),
+        g = UnitGUID("player"), -- lets the partner find me in their group reliably
         ts = time(),
         c = completed,
         q = log,
@@ -171,6 +172,7 @@ local function SanitizeSnapshot(s)
         cl = type(s.cl) == "string" and s.cl or nil,
         lv = tonumber(s.lv) or 0,
         fa = type(s.fa) == "string" and s.fa or nil,
+        g = type(s.g) == "string" and s.g:sub(1, 64) or nil,
         ts = tonumber(s.ts) or 0,
         c = {},
         q = {},
@@ -451,7 +453,7 @@ end
 K.warnedAt = {}
 local WARN_COOLDOWN = 45
 
-function K:WarnStop(questID, title, partnerKey, pq)
+function K:WarnStop(questID, title, partnerKey, pq, reason)
     local now = GetTime()
     if (self.warnedAt[questID] or 0) + WARN_COOLDOWN > now then return end
     self.warnedAt[questID] = now
@@ -469,11 +471,12 @@ function K:WarnStop(questID, title, partnerKey, pq)
         RaidNotice_AddMessage(RaidWarningFrame, "Ketchup: " .. msg, ChatTypeInfo and ChatTypeInfo.RAID_WARNING or { r = 1, g = 0.3, b = 0.1 })
     end
     PlaySound(SOUNDKIT and SOUNDKIT.RAID_WARNING or 8959, "Master")
-    self:Print("|cffff6633" .. msg .. "|r")
+    self:Print("|cffff6633" .. msg .. "|r" .. (reason and (" |cff999999(" .. who .. " is " .. reason .. ")|r") or ""))
 end
 
 -- Snapshot my log, compare with the previous one, warn about progress on
--- quests the partner has active (unless they're in my group).
+-- quests the partner has active - unless we're questing together right now
+-- (partner in my group, online and in the same zone).
 function K:CheckProgress()
     local now = self:GetMyLog()
     local before = self.lastMyLog
@@ -483,14 +486,15 @@ function K:CheckProgress()
 
     local key = self.db.selected
     if not key or not self:GetPartner(key) then return end
-    if self:GetGroupMembers()[key] then return end -- questing together, all good
+    local together, reason = self:IsQuestingTogether(key)
+    if together then return end
 
     for id, q in pairs(now) do
         local old = before[id]
         if old and Progressed(old, q) then
             local status, pq = self:GetSyncStatus(id)
             if status == "together" or status == "ahead" then
-                self:WarnStop(id, q.t ~= "" and q.t or ("Quest #" .. id), key, pq)
+                self:WarnStop(id, q.t ~= "" and q.t or ("Quest #" .. id), key, pq, reason)
             end
         end
     end
@@ -531,11 +535,76 @@ function K:GetGroupMembers()
     return members
 end
 
+-- Group unit token ("party2", "raid7") of a saved partner, or nil if they're
+-- not in my group. Matches by GUID (from their snapshot) first, then by full
+-- name-realm, then by name alone (realm spelling can differ between APIs).
+function K:FindGroupUnit(key)
+    if not key or not IsInGroup() then return nil end
+    local p = self:GetPartner(key)
+    local guid = p and p.g
+    local wantName = key:match("^(.-)%-") or key
+    local prefix, count = "party", GetNumSubgroupMembers()
+    if IsInRaid() then prefix, count = "raid", GetNumGroupMembers() end
+    local byName
+    for i = 1, count do
+        local unit = prefix .. i
+        if UnitExists(unit) and not UnitIsUnit(unit, "player") then
+            if guid and UnitGUID(unit) == guid then return unit end
+            local name, realm = UnitName(unit)
+            if name and name ~= UNKNOWNOBJECT then
+                local full = (realm and realm ~= "") and (name .. "-" .. realm) or self:NormalizeName(name)
+                if full == key then return unit end
+                if name == wantName then byName = byName or unit end
+            end
+        end
+    end
+    return byName
+end
+
+-- Collapse caves and other micro maps into their zone, so standing in a
+-- cave of the same zone still counts as "same map".
+local function ZoneMapID(mapID)
+    local guard = 0
+    while mapID and guard < 8 do
+        local info = C_Map.GetMapInfo(mapID)
+        if not info then break end
+        local micro = Enum and Enum.UIMapType and info.mapType == Enum.UIMapType.Micro
+        local orphan = Enum and Enum.UIMapType and info.mapType == Enum.UIMapType.Orphan
+        if not (micro or orphan) or not info.parentMapID or info.parentMapID == 0 then break end
+        mapID = info.parentMapID
+        guard = guard + 1
+    end
+    return mapID
+end
+
+local function SameArea(unit)
+    if not (C_Map and C_Map.GetBestMapForUnit) then return true end -- can't tell: don't nag
+    local mine, theirs = C_Map.GetBestMapForUnit("player"), C_Map.GetBestMapForUnit(unit)
+    if not mine or not theirs then return false end -- e.g. they're in another instance
+    mine, theirs = ZoneMapID(mine), ZoneMapID(theirs)
+    if mine == theirs then return true end
+    -- different floors of the same dungeon
+    local a, b = C_Map.GetMapInfo(mine), C_Map.GetMapInfo(theirs)
+    local dungeon = Enum and Enum.UIMapType and Enum.UIMapType.Dungeon
+    return a and b and dungeon and a.mapType == dungeon and b.mapType == dungeon
+        and a.parentMapID == b.parentMapID or false
+end
+
+-- Are we questing together right now? In my group, online and in the same zone.
+-- Returns together (bool), reason (string, when not together).
+function K:IsQuestingTogether(key)
+    local unit = self:FindGroupUnit(key)
+    if not unit then return false, "not in your group" end
+    if not UnitIsConnected(unit) then return false, "offline" end
+    if not SameArea(unit) then return false, "in another zone" end
+    return true
+end
+
 -- Partners currently in my group that run Ketchup (seen a message from them)
 K.online = {}
 
 function K:IsPartnerOnline(key)
-    return self.online[key] and self:GetGroupMembers()[key] ~= nil
+    return self.online[key] and self:FindGroupUnit(key) ~= nil
 end
 
 ------------------------------------------------------------------------

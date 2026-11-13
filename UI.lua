@@ -208,8 +208,8 @@ function UI:Create()
     markers:SetPoint("TOPLEFT", auto, "BOTTOMLEFT", 0, 2)
 
     local warn = MakeCheck(left, "Warn on their active quests",
-        "Show an on-screen warning when you make progress on a quest your partner has active "
-        .. "while they're not in your group.",
+        "Show an on-screen warning when you make progress on a quest your partner has active, "
+        .. "unless you're questing together: they're in your group, online and in the same zone.",
         function() return K.db.settings.warnProgress end,
         function(v) K.db.settings.warnProgress = v end)
     warn:SetPoint("TOPLEFT", markers, "BOTTOMLEFT", 0, 2)
