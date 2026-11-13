@@ -119,7 +119,8 @@ end
 
 function Comm:OnMessage(text, channel, sender)
     local key = K:NormalizeName(sender)
-    if not key or key == K:PlayerKey() then return end
+    -- WoW echoes my own addon messages back to me
+    if not key or K:IsMe(key) then return end
 
     if not K.online[key] then
         K.online[key] = true

@@ -69,6 +69,58 @@ function K:ShortName(key)
     return key
 end
 
+-- WoW Forever characters can carry a surname: UnitName() says "Tarokk" while
+-- addon messages arrive from "Tarokk Ligro-Realm". Realms are spelled
+-- differently by different APIs too ("Realm Name" vs "RealmName"). So names
+-- are compared on the first name, realms after normalizing.
+local function NormRealm(r)
+    return ((r or ""):gsub("[%s%-']", "")):lower()
+end
+
+local function SplitKey(key)
+    local name, realm = key:match("^(.-)%-([^%-]+)$")
+    return name or key, realm
+end
+
+local function FirstName(name)
+    return (name or ""):match("^(%S+)") or name
+end
+
+-- Does this "Name[ Surname]-Realm" key belong to the character name/realm?
+function K:KeyIsName(key, name, realm)
+    if not key or not name then return false end
+    local kname, krealm = SplitKey(key)
+    if FirstName(kname) ~= FirstName(name) then return false end
+    if krealm and realm and realm ~= "" then
+        return NormRealm(krealm) == NormRealm(realm)
+    end
+    return true
+end
+
+-- Is this key (and/or stored snapshot) the character I'm playing right now?
+function K:IsMe(key, snap)
+    if snap then
+        if snap.g and snap.g == UnitGUID("player") then return true end
+        if snap.n and snap.n ~= "" and FirstName(snap.n) == FirstName(UnitName("player"))
+            and NormRealm(snap.r) == NormRealm(self:MyRealm()) then
+            return true
+        end
+    end
+    if not key then return false end
+    if key == self:PlayerKey() then return true end
+    return self:KeyIsName(key, UnitName("player"), self:MyRealm())
+end
+
+-- Is this group member the saved partner (by their own reported name/realm)?
+function K:UnitNameMatchesPartner(key, name, realm)
+    local p = self.db and self.db.partners[key]
+    if p and p.n and p.n ~= "" and FirstName(p.n) == FirstName(name) then
+        local pr = (p.r and p.r ~= "") and p.r or self:MyRealm()
+        if NormRealm(pr) == NormRealm(realm) then return true end
+    end
+    return self:KeyIsName(key, name, realm)
+end
+
 function K:ClassColored(text, classFile)
     local c = classFile and RAID_CLASS_COLORS and RAID_CLASS_COLORS[classFile]
     if c then
@@ -209,7 +261,7 @@ function K:StorePartnerSnapshot(snapshot, source, senderKey)
     local s, err = SanitizeSnapshot(snapshot)
     if not s then return nil, err end
     local key = senderKey or self:NormalizeName(s.r ~= "" and (s.n .. "-" .. s.r) or s.n)
-    if key == self:PlayerKey() then
+    if self:IsMe(key, s) then
         return nil, "that is your own progress"
     end
     local existing = self.db.partners[key]
@@ -230,8 +282,30 @@ end
 function K:RemovePartner(key)
     self.db.partners[key] = nil
     self.partnerCache[key] = nil
-    if self.db.selected == key then self.db.selected = next(self.db.partners) end
+    if self.db.selected == key then self.db.selected = nil end
+    self:ValidateSelection()
     if self.UI then self.UI:Refresh() end
+end
+
+-- Saved partners except the character I'm playing (the saved data is
+-- account-wide, so my own character can be in there from older versions).
+function K:VisiblePartners()
+    local out = {}
+    for key, p in pairs(self.db.partners) do
+        if not self:IsMe(key, p) then out[key] = p end
+    end
+    return out
+end
+
+-- Make sure the selected partner exists and isn't me.
+function K:ValidateSelection()
+    local sel = self.db.selected
+    if sel and self.db.partners[sel] and not self:IsMe(sel, self.db.partners[sel]) then return end
+    local best, bestTs
+    for key, p in pairs(self:VisiblePartners()) do
+        if not bestTs or (p.ts or 0) > bestTs then best, bestTs = key, p.ts or 0 end
+    end
+    self.db.selected = best
 end
 
 function K:GetPartner(key)
@@ -535,14 +609,13 @@ function K:GetGroupMembers()
     return members
 end
 
--- Group unit token ("party2", "raid7") of a saved partner, or nil if they're
--- not in my group. Matches by GUID (from their snapshot) first, then by full
--- name-realm, then by name alone (realm spelling can differ between APIs).
+-- Group unit token ("party2", "raid7") of a partner key, or nil if they're
+-- not in my group. Matches by GUID (from their snapshot) first, then by
+-- name-realm, allowing for WoW Forever surnames (see KeyIsName).
 function K:FindGroupUnit(key)
     if not key or not IsInGroup() then return nil end
     local p = self:GetPartner(key)
     local guid = p and p.g
-    local wantName = key:match("^(.-)%-") or key
     local prefix, count = "party", GetNumSubgroupMembers()
     if IsInRaid() then prefix, count = "raid", GetNumGroupMembers() end
     local byName
@@ -552,9 +625,9 @@ function K:FindGroupUnit(key)
             if guid and UnitGUID(unit) == guid then return unit end
             local name, realm = UnitName(unit)
             if name and name ~= UNKNOWNOBJECT then
-                local full = (realm and realm ~= "") and (name .. "-" .. realm) or self:NormalizeName(name)
-                if full == key then return unit end
-                if name == wantName then byName = byName or unit end
+                realm = (realm and realm ~= "") and realm or self:MyRealm()
+                if (name .. "-" .. realm) == key then return unit end
+                if not byName and self:UnitNameMatchesPartner(key, name, realm) then byName = unit end
             end
         end
     end
@@ -647,7 +720,9 @@ function K:OnRosterChanged()
         if not knownMembers[key] then newcomer = true end
     end
     for key in pairs(self.online) do
-        if not members[key] then self.online[key] = nil end
+        -- online keys come from addon-message senders ("Name Surname-Realm"),
+        -- which don't match roster names 1:1 on WoW Forever
+        if not self:FindGroupUnit(key) then self.online[key] = nil end
     end
     knownMembers = members
     if newcomer then
@@ -687,6 +762,7 @@ function handlers.PLAYER_LOGIN()
         K:Print("|cffff5555C_EncodingUtil is missing on this client, syncing will not work.|r")
     end
     K.Comm:Init()
+    K:ValidateSelection() -- never compare against my own character
     if K.UI then K.UI:Init() end
 end
 
@@ -741,9 +817,6 @@ SlashCmdList.KETCHUP = function(msg)
     elseif msg == "minimap" then
         K.db.settings.minimap.hide = not K.db.settings.minimap.hide
         K.UI:UpdateMinimapButton()
-    elseif msg == "debug" then
-        K.UI:HookQuestLog()
-        K.UI:DebugQuestLog()
     elseif msg == "help" then
         K:Print("/ketchup - toggle window")
         K:Print("/ketchup sync - ask group members for their progress")

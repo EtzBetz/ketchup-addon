@@ -5,12 +5,13 @@
 ## Version: 1.0.0
 ## IconTexture: Interface\Icons\INV_Potion_49
 ## SavedVariables: KetchupDB
-## OptionalDeps: Questie
+## OptionalDeps: Questie, EllesmereUI
 ## AddonCompartmentFunc: Ketchup_OnAddonCompartmentClick
 ## AddonCompartmentFuncOnEnter: Ketchup_OnAddonCompartmentEnter
 ## AddonCompartmentFuncOnLeave: Ketchup_OnAddonCompartmentLeave
 
 Serialize.lua
 Core.lua
+Style.lua
 Comm.lua
 UI.lua

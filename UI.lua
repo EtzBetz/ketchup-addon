@@ -2,6 +2,7 @@
 local _, ns = ...
 local K = ns.K
 local S = ns.Serialize
+local Style = ns.Style
 
 local UI = {}
 K.UI = UI
@@ -22,6 +23,11 @@ local LOG_STATUS = {
 local currentTab = "completed"
 local transfers = {} -- [key] = "got/n"
 
+local WIDTH, HEIGHT = 940, 600
+local PAD = 10
+local TITLE_H, FOOTER_H = 25, 24
+local SIDEBAR_W = 240
+
 ------------------------------------------------------------------------
 -- helpers
 ------------------------------------------------------------------------
@@ -34,63 +40,98 @@ local function Ago(ts)
     return math.floor(d / 86400) .. " d ago"
 end
 
-local function SetTitle(frame, text)
-    if frame.TitleText then
-        frame.TitleText:SetText(text)
-    else
-        if not frame.KetchupTitle then
-            frame.KetchupTitle = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-            frame.KetchupTitle:SetPoint("TOP", 0, -5)
-        end
-        frame.KetchupTitle:SetText(text)
-    end
+local function Tooltip(frame, title, text)
+    frame:HookScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(title, 1, 1, 1)
+        if text then GameTooltip:AddLine(text, nil, nil, nil, true) end
+        GameTooltip:Show()
+    end)
+    frame:HookScript("OnLeave", GameTooltip_Hide)
 end
 
-local function MakeButton(parent, text, width, onClick)
+local function MakeButton(parent, text, width, height, onClick)
     local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-    b:SetSize(width or 120, 22)
+    b:SetSize(width or 120, height or 24)
     b:SetText(text)
     b:SetScript("OnClick", onClick)
+    local fs = b:GetFontString()
+    if fs then Style.SetFont(fs, 12) end
+    Style.Apply("Button", b)
+    Style.Apply("StateButtonLabel", b)
+    return b
+end
+
+local function MakeTab(parent, text, onClick)
+    local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+    b:SetSize(160, 26)
+    b:SetText(text)
+    b:SetScript("OnClick", onClick)
+    Style.Apply("Tab", b)
     return b
 end
 
 local function MakeCheck(parent, label, tooltip, get, set)
     local c = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
-    c:SetSize(24, 24)
-    local fs = c:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    fs:SetPoint("LEFT", c, "RIGHT", 0, 1)
+    c:SetSize(20, 20)
+    if c.Text then c.Text:SetText("") end
+    local fs = Style.Text(c, 12, 0.85, 0.85, 0.85)
+    fs:SetPoint("LEFT", c, "RIGHT", 4, 0)
     fs:SetText(label)
     c.label = fs
+    -- let the label be clicked too
+    c:SetHitRectInsets(0, -(fs:GetStringWidth() + 6), 0, 0)
     c:SetScript("OnClick", function(self) set(self:GetChecked() and true or false) end)
     c:SetScript("OnShow", function(self) self:SetChecked(get()) end)
-    if tooltip then
-        c:SetScript("OnEnter", function(self)
-            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            GameTooltip:SetText(label, 1, 1, 1)
-            GameTooltip:AddLine(tooltip, nil, nil, nil, true)
-            GameTooltip:Show()
-        end)
-        c:SetScript("OnLeave", GameTooltip_Hide)
-    end
+    if tooltip then Tooltip(c, label, tooltip) end
     c:SetChecked(get())
+    Style.Apply("Checkbox", c)
     return c
+end
+
+local function SectionLabel(parent, text)
+    local fs = Style.Text(parent, 10, 0.55, 0.55, 0.55)
+    fs:SetText(text)
+    return fs
 end
 
 local function CreateList(parent, extent, initializer)
     local box = CreateFrame("Frame", nil, parent, "WowScrollBoxList")
     local bar = CreateFrame("EventFrame", nil, parent, "MinimalScrollBar")
-    bar:SetPoint("TOPLEFT", box, "TOPRIGHT", 6, 0)
-    bar:SetPoint("BOTTOMLEFT", box, "BOTTOMRIGHT", 6, 0)
+    bar:SetPoint("TOPLEFT", box, "TOPRIGHT", 4, 0)
+    bar:SetPoint("BOTTOMLEFT", box, "BOTTOMRIGHT", 4, 0)
     local view = CreateScrollBoxListLinearView()
     view:SetElementExtent(extent)
     view:SetElementInitializer("Button", initializer)
     ScrollUtil.InitScrollBoxListWithScrollBar(box, bar, view)
+    if ScrollUtil.AddManagedScrollBarVisibilityBehavior then
+        pcall(ScrollUtil.AddManagedScrollBarVisibilityBehavior, box, bar)
+    end
+    Style.Apply("ScrollBar", bar)
     return box, bar
 end
 
 local function SetRows(box, rows)
     local retain = ScrollBoxConstants and ScrollBoxConstants.RetainScrollPosition
     box:SetDataProvider(CreateDataProvider(rows), retain)
+end
+
+local function ClassRGB(classFile)
+    local c = classFile and RAID_CLASS_COLORS and RAID_CLASS_COLORS[classFile]
+    if c then return c.r, c.g, c.b end
+    return 0.7, 0.7, 0.7
+end
+
+-- round dot (online indicator)
+local function Dot(parent, size)
+    local dot = parent:CreateTexture(nil, "OVERLAY")
+    dot:SetSize(size, size)
+    dot:SetColorTexture(0.25, 0.9, 0.35, 1)
+    local mask = parent:CreateMaskTexture()
+    mask:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+    mask:SetAllPoints(dot)
+    dot:AddMaskTexture(mask)
+    return dot
 end
 
 local function ObjectiveSummary(q)
@@ -112,7 +153,7 @@ local function AheadSummary(e)
     for j, po in ipairs(pq.o or {}) do
         local mo = mq.o and mq.o[j]
         if mo and po.h > mo.h then
-            return ("them %d/%d  |cffaaaaaa·|r  you %d/%d"):format(po.h, po.n, mo.h, mo.n)
+            return ("them %d/%d  |cff777777·|r  you %d/%d"):format(po.h, po.n, mo.h, mo.n)
         end
     end
     return ""
@@ -124,8 +165,8 @@ end
 function UI:Create()
     if self.frame then return end
 
-    local f = CreateFrame("Frame", "KetchupFrame", UIParent, "BasicFrameTemplateWithInset")
-    f:SetSize(860, 520)
+    local f = CreateFrame("Frame", "KetchupFrame", UIParent)
+    f:SetSize(WIDTH, HEIGHT)
     f:SetPoint("CENTER")
     f:SetFrameStrata("HIGH")
     f:SetToplevel(true)
@@ -138,46 +179,73 @@ function UI:Create()
     f:SetScript("OnShow", function() UI:Refresh() end)
     f:Hide()
     tinsert(UISpecialFrames, "KetchupFrame")
-    SetTitle(f, "Ketchup - quest catch-up")
+    Style.Apply("Shell", f, { bottomBar = FOOTER_H })
     self.frame = f
 
-    -- Left column: partners -------------------------------------------
-    local left = CreateFrame("Frame", nil, f)
-    left:SetPoint("TOPLEFT", 14, -32)
-    left:SetPoint("BOTTOMLEFT", 14, 12)
-    left:SetWidth(210)
+    -- Title bar ----------------------------------------------------------
+    local icon = f:CreateTexture(nil, "ARTWORK")
+    icon:SetSize(16, 16)
+    icon:SetPoint("TOPLEFT", 8, -5)
+    icon:SetTexture(ICON)
+    icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 
-    local lh = left:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    lh:SetPoint("TOPLEFT", 2, 0)
-    lh:SetText("Partners")
+    local title = Style.Text(f, 13)
+    title:SetPoint("LEFT", icon, "RIGHT", 6, 0)
+    title:SetText("Ketchup")
 
-    local partnerBox = CreateList(left, 38, function(button, data) UI:InitPartnerRow(button, data) end)
-    partnerBox:SetPoint("TOPLEFT", 0, -18)
-    partnerBox:SetPoint("TOPRIGHT", -14, -18)
-    partnerBox:SetHeight(270)
+    local subtitle = Style.Text(f, 11, 0.5, 0.5, 0.5)
+    subtitle:SetPoint("LEFT", title, "RIGHT", 8, -1)
+    subtitle:SetText("quest catch-up")
+
+    local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
+    close:SetSize(24, 24)
+    close:SetPoint("TOPRIGHT", 0, 0)
+    close:SetScript("OnClick", function() f:Hide() end)
+    Style.Apply("CloseButton", close)
+
+    -- Footer -------------------------------------------------------------
+    local hint = Style.Text(f, 11, 0.5, 0.5, 0.5)
+    hint:SetPoint("BOTTOMLEFT", 12, 6)
+    hint:SetText("Hover a quest for details  ·  Shift-click: link in chat  ·  Right-click: ignore / unignore")
+
+    local version = Style.Text(f, 11, 0.4, 0.4, 0.4)
+    version:SetPoint("BOTTOMRIGHT", -12, 6)
+    version:SetJustifyH("RIGHT")
+    version:SetText("v" .. tostring(K.version))
+
+    -- Sidebar --------------------------------------------------------------
+    local side = CreateFrame("Frame", nil, f)
+    side:SetPoint("TOPLEFT", PAD, -(TITLE_H + PAD))
+    side:SetPoint("BOTTOMLEFT", PAD, FOOTER_H + PAD)
+    side:SetWidth(SIDEBAR_W)
+    Style.Apply("Panel", side, { inset = true })
+    local innerW = SIDEBAR_W - 24
+
+    local partnersLabel = SectionLabel(side, "PARTNERS")
+    partnersLabel:SetPoint("TOPLEFT", 12, -12)
+
+    local partnerBox = CreateList(side, 48, function(button, data) UI:InitPartnerRow(button, data) end)
+    partnerBox:SetPoint("TOPLEFT", 6, -28)
+    partnerBox:SetPoint("TOPRIGHT", -16, -28)
+    partnerBox:SetHeight(4 * 48)
     self.partnerBox = partnerBox
 
-    local emptyPartners = left:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    emptyPartners:SetPoint("TOPLEFT", partnerBox, "TOPLEFT", 4, -6)
-    emptyPartners:SetPoint("RIGHT", partnerBox, "RIGHT", -4, 0)
-    emptyPartners:SetJustifyH("LEFT")
-    emptyPartners:SetText("No partner data yet.\n\nGroup up with your friend (both need Ketchup), or import their string.")
+    local emptyPartners = Style.Text(side, 12, 0.55, 0.55, 0.55)
+    emptyPartners:SetPoint("TOPLEFT", partnerBox, "TOPLEFT", 6, -8)
+    emptyPartners:SetPoint("RIGHT", partnerBox, "RIGHT", -6, 0)
+    emptyPartners:SetWordWrap(true)
+    emptyPartners:SetText("No partner data yet.\n\nGroup up with your friend (both need Ketchup), or import the string they exported.")
     self.emptyPartners = emptyPartners
 
-    local y = -296
+    local actionsLabel = SectionLabel(side, "ACTIONS")
+    actionsLabel:SetPoint("TOPLEFT", partnerBox, "BOTTOMLEFT", 6, -14)
+
+    local y = -(28 + 4 * 48 + 32)
     local function addButton(text, onClick, tip)
-        local b = MakeButton(left, text, 196, onClick)
-        b:SetPoint("TOPLEFT", 0, y)
-        if tip then
-            b:SetScript("OnEnter", function(self)
-                GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-                GameTooltip:SetText(text, 1, 1, 1)
-                GameTooltip:AddLine(tip, nil, nil, nil, true)
-                GameTooltip:Show()
-            end)
-            b:SetScript("OnLeave", GameTooltip_Hide)
-        end
-        y = y - 25
+        local b = MakeButton(side, text, innerW, 26, onClick)
+        b:SetPoint("TOPLEFT", 12, y)
+        if tip then Tooltip(b, text, tip) end
+        y = y - 30
         return b
     end
     addButton("Sync with group", function() K.Comm:RequestFromGroup() end,
@@ -193,117 +261,158 @@ function UI:Create()
         end
     end)
 
-    local auto = MakeCheck(left, "Auto-share while grouped",
+    local settingsLabel = SectionLabel(side, "SETTINGS")
+    settingsLabel:SetPoint("TOPLEFT", 12, y - 10)
+
+    local auto = MakeCheck(side, "Auto-share while grouped",
         "Automatically send your progress to group members running Ketchup whenever your quests change.",
         function() return K.db.settings.autoShare end,
         function(v) K.db.settings.autoShare = v; if v then K:ScheduleShare(1, true) end end)
-    auto:SetPoint("TOPLEFT", -2, y - 4)
+    auto:SetPoint("TOPLEFT", 10, y - 26)
 
-    local markers = MakeCheck(left, "Sync icons in quest log",
-        "Show an icon per quest in your quest log:\n|cff20ff20check|r = partner turned it in, do it to catch up\n"
-        .. "|cffffd100?|r = partner has it active, do it together\n|cffff3333X|r = you're ahead of your partner\n"
-        .. "grey = partner doesn't have it",
+    local markers = MakeCheck(side, "Sync icons in quest log",
+        "Show an icon per quest in your quest log:\n"
+        .. "|TInterface\\RaidFrame\\ReadyCheck-Ready:0|t  partner has this quest too\n"
+        .. "|A:creditsscreen-assets-buttons-fastforward:14:14:0:0:255:165:38|a  partner already turned it in, do it to catch up\n"
+        .. "|TInterface\\RaidFrame\\ReadyCheck-NotReady:0|t  partner doesn't have it",
         function() return K.db.settings.questLogMarkers end,
         function(v) K.db.settings.questLogMarkers = v; UI:UpdateQuestLogMarkers() end)
-    markers:SetPoint("TOPLEFT", auto, "BOTTOMLEFT", 0, 2)
+    markers:SetPoint("TOPLEFT", auto, "BOTTOMLEFT", 0, -4)
 
-    local warn = MakeCheck(left, "Warn on their active quests",
+    local warn = MakeCheck(side, "Warn on their active quests",
         "Show an on-screen warning when you make progress on a quest your partner has active, "
         .. "unless you're questing together: they're in your group, online and in the same zone.",
         function() return K.db.settings.warnProgress end,
         function(v) K.db.settings.warnProgress = v end)
-    warn:SetPoint("TOPLEFT", markers, "BOTTOMLEFT", 0, 2)
+    warn:SetPoint("TOPLEFT", markers, "BOTTOMLEFT", 0, -4)
 
-    -- Right column: diff -----------------------------------------------
-    local right = CreateFrame("Frame", nil, f)
-    right:SetPoint("TOPLEFT", left, "TOPRIGHT", 14, 0)
-    right:SetPoint("BOTTOMRIGHT", -14, 12)
-    self.right = right
+    -- Main area --------------------------------------------------------------
+    local main = CreateFrame("Frame", nil, f)
+    main:SetPoint("TOPLEFT", side, "TOPRIGHT", PAD, 0)
+    main:SetPoint("BOTTOMRIGHT", -PAD, FOOTER_H + PAD)
+    self.main = main
 
-    local header = right:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
-    header:SetPoint("TOPLEFT", 2, 0)
-    header:SetJustifyH("LEFT")
+    -- partner header card
+    local card = CreateFrame("Frame", nil, main)
+    card:SetPoint("TOPLEFT")
+    card:SetPoint("TOPRIGHT")
+    card:SetHeight(66)
+    Style.Apply("Panel", card)
+
+    local classBar = card:CreateTexture(nil, "ARTWORK")
+    classBar:SetPoint("TOPLEFT", 1, -1)
+    classBar:SetPoint("BOTTOMLEFT", 1, 1)
+    classBar:SetWidth(3)
+    self.classBar = classBar
+
+    local header = Style.Text(card, 18)
+    header:SetPoint("TOPLEFT", 16, -11)
     self.header = header
 
-    local sub = right:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    sub:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -4)
-    sub:SetPoint("RIGHT", right, "RIGHT", 0, 0)
-    sub:SetJustifyH("LEFT")
+    local sub = Style.Text(card, 11, 0.62, 0.62, 0.62)
+    sub:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -7)
+    sub:SetPoint("RIGHT", card, "RIGHT", -12, 0)
     self.sub = sub
 
+    local pill = CreateFrame("Frame", nil, card)
+    pill:SetSize(130, 20)
+    pill:SetPoint("TOPRIGHT", -12, -12)
+    Style.Apply("Panel", pill, { inset = true })
+    pill.dot = Dot(pill, 7)
+    pill.dot:SetPoint("LEFT", 8, 0)
+    pill.text = Style.Text(pill, 11, 0.85, 0.85, 0.85)
+    pill.text:SetPoint("LEFT", pill.dot, "RIGHT", 6, 0)
+    self.pill = pill
+
+    -- tabs
     self.tabButtons = {}
     local prev
     for _, tab in ipairs(TABS) do
-        local b = MakeButton(right, tab.label, 190, function()
+        local b = MakeTab(main, tab.label, function()
             currentTab = tab.key
             UI:RebuildRows()
         end)
-        if prev then b:SetPoint("LEFT", prev, "RIGHT", 4, 0) else b:SetPoint("TOPLEFT", 0, -56) end
+        if prev then b:SetPoint("LEFT", prev, "RIGHT", 2, 0) else b:SetPoint("TOPLEFT", card, "BOTTOMLEFT", 0, -10) end
         b.tabKey = tab.key
         b.baseLabel = tab.label
         self.tabButtons[#self.tabButtons + 1] = b
         prev = b
     end
 
-    local search = CreateFrame("EditBox", nil, right, "SearchBoxTemplate")
-    search:SetSize(150, 20)
-    search:SetPoint("TOPLEFT", 6, -86)
+    -- toolbar: search + filters
+    local search = CreateFrame("EditBox", nil, main, "SearchBoxTemplate")
+    search:SetSize(190, 22)
+    search:SetPoint("TOPLEFT", card, "BOTTOMLEFT", 6, -46)
     search:HookScript("OnTextChanged", function() UI:RebuildRows() end)
+    Style.Apply("EditBox", search, { padInput = true })
     self.search = search
 
-    local doable = MakeCheck(right, "Only quests I can do now",
+    local doable = MakeCheck(main, "Only doable now",
         "Uses Questie to hide quests you don't have yet and can't pick up yet (level, race/class, missing prerequisite).",
         function() return K.db.settings.onlyDoable end,
         function(v) K.db.settings.onlyDoable = v; UI:RebuildRows() end)
-    doable:SetPoint("LEFT", search, "RIGHT", 10, 0)
+    doable:SetPoint("LEFT", search, "RIGHT", 16, 0)
     self.doableCheck = doable
 
-    local hideLog = MakeCheck(right, "Hide quests in my log",
+    local hideLog = MakeCheck(main, "Hide quests in my log",
         "On the 'Done by them, not you' tab: hide quests you already have in your quest log.",
         function() return K.db.settings.hideInMyLog end,
         function(v) K.db.settings.hideInMyLog = v; UI:RebuildRows() end)
-    hideLog:SetPoint("LEFT", doable.label, "RIGHT", 10, -1)
+    hideLog:SetPoint("LEFT", doable.label, "RIGHT", 16, 0)
 
-    local showIgn = MakeCheck(right, "Show ignored",
+    local showIgn = MakeCheck(main, "Show ignored",
         "Right-click a quest to ignore it (e.g. class quests you can't do).",
         function() return K.db.settings.showIgnored end,
         function(v) K.db.settings.showIgnored = v; UI:RebuildRows() end)
-    showIgn:SetPoint("LEFT", hideLog.label, "RIGHT", 10, 0)
+    showIgn:SetPoint("LEFT", hideLog.label, "RIGHT", 16, 0)
 
-    local questBox = CreateList(right, 20, function(button, data) UI:InitQuestRow(button, data) end)
-    questBox:SetPoint("TOPLEFT", 0, -112)
-    questBox:SetPoint("BOTTOMRIGHT", -16, 18)
+    -- quest list
+    local listPanel = CreateFrame("Frame", nil, main)
+    listPanel:SetPoint("TOPLEFT", card, "BOTTOMLEFT", 0, -78)
+    listPanel:SetPoint("BOTTOMRIGHT")
+    Style.Apply("Panel", listPanel, { inset = true })
+
+    local questBox = CreateList(listPanel, 24, function(button, data) UI:InitQuestRow(button, data) end)
+    questBox:SetPoint("TOPLEFT", 4, -4)
+    questBox:SetPoint("BOTTOMRIGHT", -18, 4)
     self.questBox = questBox
 
-    local empty = right:CreateFontString(nil, "OVERLAY", "GameFontDisable")
-    empty:SetPoint("TOP", questBox, "TOP", 0, -40)
+    local empty = Style.Text(listPanel, 14, 0.6, 0.6, 0.6)
+    empty:SetPoint("CENTER", listPanel, "CENTER", 0, 20)
+    empty:SetJustifyH("CENTER")
     self.emptyQuests = empty
 
-    local hint = right:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    hint:SetPoint("BOTTOMLEFT", 2, 0)
-    hint:SetText("Hover for details  ·  Shift-click: link in chat  ·  Right-click: ignore / unignore")
+    local emptySub = Style.Text(listPanel, 11, 0.45, 0.45, 0.45)
+    emptySub:SetPoint("TOP", empty, "BOTTOM", 0, -8)
+    emptySub:SetJustifyH("CENTER")
+    self.emptyQuestsSub = emptySub
+
+    -- live accent changes (EllesmereUI): recolor what we painted ourselves
+    Style.OnLooksChanged(function() if UI:IsShown() then UI:Refresh() end end)
 end
 
 function UI:InitPartnerRow(button, data)
     if not button.ketchupInit then
         button.ketchupInit = true
-        button:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
+        local hl = button:CreateTexture(nil, "HIGHLIGHT")
+        hl:SetAllPoints()
+        hl:SetColorTexture(1, 1, 1, 0.04)
         local sel = button:CreateTexture(nil, "BACKGROUND")
         sel:SetAllPoints()
-        sel:SetColorTexture(1, 0.6, 0.1, 0.18)
         button.sel = sel
-        button.name = button:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        button.name:SetPoint("TOPLEFT", 16, -4)
-        button.name:SetPoint("RIGHT", -4, 0)
-        button.name:SetJustifyH("LEFT")
-        button.info = button:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-        button.info:SetPoint("TOPLEFT", button.name, "BOTTOMLEFT", 0, -3)
-        button.info:SetPoint("RIGHT", -4, 0)
-        button.info:SetJustifyH("LEFT")
-        button.dot = button:CreateTexture(nil, "OVERLAY")
-        button.dot:SetSize(8, 8)
-        button.dot:SetPoint("LEFT", 4, 6)
-        button.dot:SetColorTexture(0.2, 1, 0.2, 1)
+        local bar = button:CreateTexture(nil, "ARTWORK")
+        bar:SetPoint("TOPLEFT", 0, -6)
+        bar:SetPoint("BOTTOMLEFT", 0, 6)
+        bar:SetWidth(3)
+        button.bar = bar
+        button.name = Style.Text(button, 13)
+        button.name:SetPoint("TOPLEFT", 12, -9)
+        button.name:SetPoint("RIGHT", -22, 0)
+        button.info = Style.Text(button, 11, 0.55, 0.55, 0.55)
+        button.info:SetPoint("TOPLEFT", button.name, "BOTTOMLEFT", 0, -5)
+        button.info:SetPoint("RIGHT", -8, 0)
+        button.dot = Dot(button, 7)
+        button.dot:SetPoint("TOPRIGHT", -10, -13)
         button:SetScript("OnClick", function(self)
             K.db.selected = self.key
             UI:Refresh()
@@ -311,15 +420,19 @@ function UI:InitPartnerRow(button, data)
     end
     local p = data.partner
     button.key = data.key
-    button.sel:SetShown(K.db.selected == data.key)
-    button.name:SetText(K:ClassColored(K:ShortName(data.key), p.cl))
-    local online = K:IsPartnerOnline(data.key)
-    button.dot:SetShown(online)
+    local selected = K.db.selected == data.key
+    local ar, ag, ab = Style.Accent()
+    button.sel:SetColorTexture(ar, ag, ab, 0.14)
+    button.sel:SetShown(selected)
+    button.bar:SetColorTexture(ClassRGB(p.cl))
+    button.name:SetText(K:ShortName(data.key))
+    button.name:SetTextColor(ClassRGB(p.cl))
+    button.dot:SetShown(K:IsPartnerOnline(data.key))
     local t = transfers[data.key]
     if t then
         button.info:SetText("receiving " .. t .. " ...")
     else
-        button.info:SetText(("Lv %d · %s%s"):format(p.lv or 0, Ago(p.ts), p.source == "import" and " · import" or ""))
+        button.info:SetText(("Level %d  ·  %s%s"):format(p.lv or 0, Ago(p.ts), p.source == "import" and "  ·  import" or ""))
     end
 end
 
@@ -329,39 +442,65 @@ function UI:InitQuestRow(button, data)
         button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
         local hl = button:CreateTexture(nil, "HIGHLIGHT")
         hl:SetAllPoints()
-        hl:SetColorTexture(1, 1, 1, 0.08)
+        hl:SetColorTexture(1, 1, 1, 0.05)
         button.hl = hl
-        button.left = button:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-        button.left:SetPoint("LEFT", 6, 0)
-        button.left:SetJustifyH("LEFT")
-        button.right = button:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        button.right:SetPoint("RIGHT", -6, 0)
-        button.right:SetJustifyH("RIGHT")
-        button.left:SetPoint("RIGHT", button.right, "LEFT", -8, 0)
+        -- quest row
+        button.lvl = Style.Text(button, 11)
+        button.lvl:SetPoint("LEFT", 6, 0)
+        button.lvl:SetWidth(24)
+        button.lvl:SetJustifyH("RIGHT")
+        button.status = Style.Text(button, 11, 0.8, 0.8, 0.8)
+        button.status:SetPoint("RIGHT", -8, 0)
+        button.status:SetJustifyH("RIGHT")
+        button.title = Style.Text(button, 12)
+        button.title:SetPoint("LEFT", button.lvl, "RIGHT", 10, 0)
+        button.title:SetPoint("RIGHT", button.status, "LEFT", -12, 0)
+        -- zone header row
+        button.zone = Style.Text(button, 11)
+        button.zone:SetPoint("BOTTOMLEFT", 8, 5)
+        button.count = Style.Text(button, 11, 0.45, 0.45, 0.45)
+        button.count:SetPoint("LEFT", button.zone, "RIGHT", 6, 0)
+        button.line = button:CreateTexture(nil, "ARTWORK")
+        button.line:SetColorTexture(1, 1, 1, 0.08)
+        button.line:SetHeight(1)
+        button.line:SetPoint("LEFT", button.count, "RIGHT", 8, 0)
+        button.line:SetPoint("RIGHT", -8, 0)
         button:SetScript("OnClick", function(self, mouse) UI:OnQuestClick(self.data, mouse) end)
         button:SetScript("OnEnter", function(self) UI:ShowQuestTooltip(self, self.data) end)
         button:SetScript("OnLeave", GameTooltip_Hide)
     end
     button.data = data
-    if data.header then
-        button.hl:Hide()
-        button.left:SetFontObject("GameFontNormal")
-        button.left:SetText(data.text .. "  |cff888888(" .. data.count .. ")|r")
-        button.right:SetText("")
+    local isHeader = data.header and true or false
+    button.hl:SetShown(not isHeader)
+    button.lvl:SetShown(not isHeader)
+    button.title:SetShown(not isHeader)
+    button.status:SetShown(not isHeader)
+    button.zone:SetShown(isHeader)
+    button.count:SetShown(isHeader)
+    button.line:SetShown(isHeader)
+
+    if isHeader then
+        button.zone:SetText(data.text)
+        button.zone:SetTextColor(Style.Accent())
+        button.count:SetText(data.count)
         return
     end
-    button.hl:Show()
-    button.left:SetFontObject("GameFontHighlight")
+
     local e = data.entry
-    local lvl = e.level and e.level > 0 and ("[" .. e.level .. "] ") or ""
-    local color = ""
+    button.lvl:SetText(e.level and e.level > 0 and e.level or "")
     if e.level and e.level > 0 and GetQuestDifficultyColor then
         local c = GetQuestDifficultyColor(e.level)
-        color = ("|cff%02x%02x%02x"):format(c.r * 255, c.g * 255, c.b * 255)
+        button.lvl:SetTextColor(c.r, c.g, c.b)
+    else
+        button.lvl:SetTextColor(0.6, 0.6, 0.6)
     end
-    local title = "    " .. color .. lvl .. e.title .. (color ~= "" and "|r" or "")
-    if e.ignored then title = "    |cff777777" .. lvl .. e.title .. " (ignored)|r" end
-    button.left:SetText(title)
+    if e.ignored then
+        button.title:SetText(e.title .. "  (ignored)")
+        button.title:SetTextColor(0.45, 0.45, 0.45)
+    else
+        button.title:SetText(e.title)
+        button.title:SetTextColor(0.92, 0.92, 0.92)
+    end
 
     local status = ""
     if currentTab == "completed" then
@@ -371,14 +510,14 @@ function UI:InitQuestRow(button, data)
             status = "|cffff9933behind:|r " .. AheadSummary(e)
         elseif e.status == "missing" then
             local summary = ObjectiveSummary(e.partnerQuest)
-            status = LOG_STATUS.missing .. (summary ~= "" and ("  |cffaaaaaa·|r  them " .. summary) or "")
+            status = LOG_STATUS.missing .. (summary ~= "" and ("  |cff777777·|r  them " .. summary) or "")
         else
             status = LOG_STATUS[e.status] or ""
         end
     else
         status = AheadSummary(e)
     end
-    button.right:SetText(status)
+    button.status:SetText(status)
 end
 
 function UI:OnQuestClick(data, mouse)
@@ -450,7 +589,7 @@ end
 
 function UI:RefreshPartners()
     local rows = {}
-    for key, p in pairs(K.db.partners) do
+    for key, p in pairs(K:VisiblePartners()) do -- never list my own character
         rows[#rows + 1] = { key = key, partner = p }
     end
     table.sort(rows, function(a, b)
@@ -467,26 +606,39 @@ end
 function UI:Refresh()
     self:UpdateQuestLogMarkers() -- partner data or selection may have changed
     if not self:IsShown() then return end
-    if K.db.selected and not K.db.partners[K.db.selected] then K.db.selected = nil end
-    if not K.db.selected then K.db.selected = next(K.db.partners) end
+    K:ValidateSelection()
     self:RefreshPartners()
 
     local key = K.db.selected
     local p = K:GetPartner(key)
     if not p then
         self.header:SetText("Nobody to catch up with yet")
+        self.header:SetTextColor(1, 1, 1)
+        self.classBar:SetColorTexture(Style.Accent())
         self.sub:SetText("Join a group with your partner, or import a string they exported.")
+        self.pill:Hide()
         self.diff = nil
     else
-        self.header:SetText(K:ClassColored(K:ShortName(key), p.cl))
-        local online = K:IsPartnerOnline(key) and "|cff20ff20in your group|r" or "|cff999999not in group - showing saved data|r"
+        self.header:SetText(K:ShortName(key))
+        self.header:SetTextColor(ClassRGB(p.cl))
+        self.classBar:SetColorTexture(ClassRGB(p.cl))
         self.diff = K:ComputeDiff(key)
-        self.sub:SetText(("Level %d %s · %d quests completed (%d also by you) · %d in quest log\nData from %s via %s · %s"):format(
-            p.lv or 0, p.fa or "", self.diff.completedTotal or 0, self.diff.completedShared or 0, #(p.q or {}),
-            Ago(p.ts), p.source == "import" and "import" or "group sync", online))
+        local sep = "  |cff555555·|r  "
+        self.sub:SetText(table.concat({
+            ("Level %d %s"):format(p.lv or 0, p.fa or ""),
+            ("%d completed (%d also by you)"):format(self.diff.completedTotal or 0, self.diff.completedShared or 0),
+            ("%d in quest log"):format(#(p.q or {})),
+            ("updated %s via %s"):format(Ago(p.ts), p.source == "import" and "import" or "group sync"),
+        }, sep))
+        local online = K:IsPartnerOnline(key)
+        self.pill.dot:SetColorTexture(online and 0.25 or 0.5, online and 0.9 or 0.5, online and 0.35 or 0.5, 1)
+        self.pill.text:SetText(online and "In your group" or "Saved data")
+        self.pill:SetWidth(self.pill.text:GetStringWidth() + 30)
+        self.pill:Show()
     end
-    self.doableCheck:SetEnabled(K:HasQuestie())
-    self.doableCheck.label:SetFontObject(K:HasQuestie() and "GameFontHighlightSmall" or "GameFontDisableSmall")
+    local hasQuestie = K:HasQuestie()
+    self.doableCheck:SetEnabled(hasQuestie)
+    self.doableCheck.label:SetTextColor(hasQuestie and 0.85 or 0.4, hasQuestie and 0.85 or 0.4, hasQuestie and 0.85 or 0.4)
     self:RebuildRows()
 end
 
@@ -517,12 +669,12 @@ function UI:RebuildRows()
             if PassesFilter(e, b.tabKey, query) then n = n + 1 end
         end
         if n == total then
-            b:SetText(("%s (%d)"):format(b.baseLabel, n))
+            b:SetText(("%s  %d"):format(b.baseLabel, n))
         else
-            b:SetText(("%s (%d of %d)"):format(b.baseLabel, n, total))
+            b:SetText(("%s  %d / %d"):format(b.baseLabel, n, total))
         end
-        b:SetWidth(b:GetFontString():GetStringWidth() + 28)
-        if b.tabKey == currentTab then b:LockHighlight() else b:UnlockHighlight() end
+        b:SetWidth(math.max(120, b:GetFontString():GetStringWidth() + 32))
+        Style.Apply("SetTabSelection", b, b.tabKey == currentTab)
     end
 
     local rows, lastZone, headerRow = {}, nil, nil
@@ -540,11 +692,14 @@ function UI:RebuildRows()
     SetRows(self.questBox, rows)
 
     if not self.diff then
-        self.emptyQuests:SetText("")
+        self.emptyQuests:SetText("No partner selected")
+        self.emptyQuestsSub:SetText("Group up with your partner or import their string to get started.")
     elseif #rows == 0 then
         self.emptyQuests:SetText("Nothing here - you're in sync!")
+        self.emptyQuestsSub:SetText(query ~= "" and "No quest matches your search." or "")
     else
         self.emptyQuests:SetText("")
+        self.emptyQuestsSub:SetText("")
     end
 end
 
@@ -563,10 +718,11 @@ StaticPopupDialogs["KETCHUP_REMOVE_PARTNER"] = {
 ------------------------------------------------------------------------
 function UI:CreateStringDialog()
     if self.stringDialog then return self.stringDialog end
-    local d = CreateFrame("Frame", "KetchupStringDialog", UIParent, "BasicFrameTemplateWithInset")
-    d:SetSize(520, 340)
+    local d = CreateFrame("Frame", "KetchupStringDialog", UIParent)
+    d:SetSize(580, 380)
     d:SetPoint("CENTER", 0, 40)
     d:SetFrameStrata("DIALOG")
+    d:SetToplevel(true)
     d:SetMovable(true)
     d:EnableMouse(true)
     d:SetClampedToScreen(true)
@@ -575,27 +731,47 @@ function UI:CreateStringDialog()
     d:SetScript("OnDragStop", d.StopMovingOrSizing)
     d:Hide()
     tinsert(UISpecialFrames, "KetchupStringDialog")
+    Style.Apply("Shell", d, { bottomBar = 44 })
 
-    local info = d:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    info:SetPoint("TOPLEFT", 16, -32)
-    info:SetPoint("RIGHT", -16, 0)
-    info:SetJustifyH("LEFT")
+    local icon = d:CreateTexture(nil, "ARTWORK")
+    icon:SetSize(16, 16)
+    icon:SetPoint("TOPLEFT", 8, -5)
+    icon:SetTexture(ICON)
+    icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+
+    d.titleText = Style.Text(d, 13)
+    d.titleText:SetPoint("LEFT", icon, "RIGHT", 6, 0)
+
+    local close = CreateFrame("Button", nil, d, "UIPanelCloseButton")
+    close:SetSize(24, 24)
+    close:SetPoint("TOPRIGHT", 0, 0)
+    close:SetScript("OnClick", function() d:Hide() end)
+    Style.Apply("CloseButton", close)
+
+    local info = Style.Text(d, 12, 0.8, 0.8, 0.8)
+    info:SetPoint("TOPLEFT", 14, -(TITLE_H + 12))
+    info:SetPoint("RIGHT", -14, 0)
+    info:SetWordWrap(true)
     d.info = info
 
-    local scroll = CreateFrame("ScrollFrame", nil, d, "UIPanelScrollFrameTemplate")
-    scroll:SetPoint("TOPLEFT", 16, -64)
-    scroll:SetPoint("BOTTOMRIGHT", -34, 44)
+    local panel = CreateFrame("Frame", nil, d)
+    panel:SetPoint("TOPLEFT", 12, -(TITLE_H + 50))
+    panel:SetPoint("BOTTOMRIGHT", -12, 54)
+    Style.Apply("Panel", panel, { inset = true })
 
-    local bg = d:CreateTexture(nil, "BACKGROUND", nil, 1)
-    bg:SetPoint("TOPLEFT", scroll, -4, 4)
-    bg:SetPoint("BOTTOMRIGHT", scroll, 4, -4)
-    bg:SetColorTexture(0, 0, 0, 0.5)
+    local ok, scroll = pcall(CreateFrame, "ScrollFrame", nil, panel, "ScrollFrameTemplate")
+    if not ok then scroll = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate") end
+    scroll:SetPoint("TOPLEFT", 8, -8)
+    scroll:SetPoint("BOTTOMRIGHT", -22, 8)
+    if scroll.ScrollBar then Style.Apply("ScrollBar", scroll.ScrollBar) end
 
     local edit = CreateFrame("EditBox", nil, scroll)
     edit:SetMultiLine(true)
     edit:SetAutoFocus(false)
     edit:SetFontObject(ChatFontNormal)
-    edit:SetWidth(460)
+    Style.SetFont(edit, 12)
+    edit:SetTextColor(0.9, 0.9, 0.9)
+    edit:SetWidth(520)
     edit:SetMaxLetters(0)
     edit:SetScript("OnEscapePressed", function() d:Hide() end)
     edit:SetScript("OnTextChanged", function(self, user)
@@ -610,7 +786,7 @@ function UI:CreateStringDialog()
     scroll:SetScript("OnMouseDown", function() edit:SetFocus() end)
     d.edit = edit
 
-    local action = MakeButton(d, "Import", 120, function()
+    local action = MakeButton(d, "Import", 130, 26, function()
         if d.mode == "import" then
             UI:DoImport(edit:GetText())
         else
@@ -618,11 +794,11 @@ function UI:CreateStringDialog()
             edit:HighlightText()
         end
     end)
-    action:SetPoint("BOTTOMRIGHT", -16, 14)
+    action:SetPoint("BOTTOMRIGHT", -12, 9)
     d.action = action
 
-    local close = MakeButton(d, CLOSE or "Close", 100, function() d:Hide() end)
-    close:SetPoint("RIGHT", action, "LEFT", -6, 0)
+    local closeBtn = MakeButton(d, CLOSE or "Close", 100, 26, function() d:Hide() end)
+    closeBtn:SetPoint("RIGHT", action, "LEFT", -8, 0)
 
     self.stringDialog = d
     return d
@@ -638,10 +814,10 @@ function UI:ShowExport()
     end
     d.mode = "export"
     d.exportText = text
-    SetTitle(d, "Ketchup - export my progress")
-    d.info:SetText(("Press |cffffd100Ctrl+C|r to copy (%d characters) and send it to your partner. "
-        .. "They paste it via |cffffd100Import string|r. %d completed quests, %d quests in log."):format(
-        #text, #snapshot.c, #snapshot.q))
+    d.titleText:SetText("Export my progress")
+    d.info:SetText(("Press |cffffd100Ctrl+C|r to copy and send it to your partner over any messenger. "
+        .. "They paste it via |cffffd100Import string|r.\n|cff888888%d completed quests  ·  %d quests in log  ·  %d characters|r"):format(
+        #snapshot.c, #snapshot.q, #text))
     d.action:SetText("Select all")
     d.edit:SetText(text)
     d:Show()
@@ -653,8 +829,9 @@ function UI:ShowImport()
     local d = self:CreateStringDialog()
     d.mode = "import"
     d.exportText = nil
-    SetTitle(d, "Ketchup - import partner progress")
-    d.info:SetText("Paste the string your partner exported (|cffffd100Ctrl+V|r), then click |cffffd100Import|r.")
+    d.titleText:SetText("Import partner progress")
+    d.info:SetText("Paste the string your partner exported (|cffffd100Ctrl+V|r), then click |cffffd100Import|r.\n"
+        .. "|cff888888Line breaks or spaces added by a messenger are fine.|r")
     d.action:SetText("Import")
     d.edit:SetText("")
     d:Show()
@@ -750,6 +927,10 @@ function UI:CreateQuestLogButton()
     local b = UI.CreateDetached("Button", "KetchupQuestLogButton", parent, "UIPanelButtonTemplate")
     b:SetSize(80, 20)
     b:SetText("Ketchup")
+    local fs = b:GetFontString()
+    if fs then Style.SetFont(fs, 12) end
+    Style.Apply("Button", b)
+    Style.Apply("StateButtonLabel", b)
     self.questLogButton = b
 
     if parent == QuestLogFrame then
@@ -836,12 +1017,22 @@ function UI.CreateDetached(frameType, name, parent, template)
     return frame
 end
 
+-- Catch-up: the credits screen's fast-forward ">>" atlas, tinted orange.
+local CATCHUP_ATLAS = "creditsscreen-assets-buttons-fastforward"
+local CATCHUP_RGB = { 255, 165, 38 }
+
 local MARKERS = {
-    catchup  = { tex = "Interface\\RaidFrame\\ReadyCheck-Ready" },
-    together = { tex = "Interface\\RaidFrame\\ReadyCheck-Waiting" },
-    ahead    = { tex = "Interface\\RaidFrame\\ReadyCheck-NotReady" },
-    none     = { tex = "Interface\\RaidFrame\\ReadyCheck-Waiting", grey = true },
+    together = { tex = "Interface\\RaidFrame\\ReadyCheck-Ready" },    -- partner has the quest too
+    ahead    = { tex = "Interface\\RaidFrame\\ReadyCheck-Ready" },    -- ...and I'm further along (tooltip says so)
+    catchup  = { atlas = CATCHUP_ATLAS, rgb = CATCHUP_RGB },          -- partner already turned it in
+    none     = { tex = "Interface\\RaidFrame\\ReadyCheck-NotReady" }, -- partner doesn't have it
 }
+
+-- Inline markup for the catch-up icon at a given pixel size.
+local function CatchupMarkup(size)
+    return ("|A:%s:%d:%d:0:0:%d:%d:%d|a"):format(CATCHUP_ATLAS, size, size,
+        CATCHUP_RGB[1], CATCHUP_RGB[2], CATCHUP_RGB[3])
+end
 
 -- Adds the Ketchup sync lines for a quest to GameTooltip. Returns false if
 -- there is nothing to say (no partner selected).
@@ -857,17 +1048,17 @@ local function AddSyncLines(questID, asSection)
         GameTooltip:SetText("Ketchup", 1, 1, 1)
     end
     if status == "catchup" then
-        GameTooltip:AddLine(who .. " already turned this in.", 0.2, 1, 0.2, true)
+        GameTooltip:AddLine(who .. " already turned this in.", 1, 0.65, 0.15, true)
         GameTooltip:AddLine("Do it to catch up.", 1, 1, 1, true)
     elseif status == "together" then
-        GameTooltip:AddLine(who .. " has this quest active.", 1, 0.82, 0, true)
-        GameTooltip:AddLine("Stop here and do it together.", 1, 1, 1, true)
+        GameTooltip:AddLine(who .. " has this quest too.", 0.2, 1, 0.2, true)
+        GameTooltip:AddLine("Do it together.", 1, 1, 1, true)
     elseif status == "ahead" then
-        GameTooltip:AddLine("You're ahead of " .. who .. " on this quest.", 1, 0.3, 0.3, true)
-        GameTooltip:AddLine("Stop until they catch up.", 1, 1, 1, true)
+        GameTooltip:AddLine(who .. " has this quest too, but you're further along.", 0.2, 1, 0.2, true)
+        GameTooltip:AddLine("Wait for them to catch up.", 1, 1, 1, true)
     else
-        GameTooltip:AddLine(who .. " doesn't have this quest.", 0.7, 0.7, 0.7, true)
-        GameTooltip:AddLine("Doing it puts you ahead of them.", 0.7, 0.7, 0.7, true)
+        GameTooltip:AddLine(who .. " doesn't have this quest.", 1, 0.3, 0.3, true)
+        GameTooltip:AddLine("Doing it puts you ahead of them.", 1, 1, 1, true)
     end
     if pq then
         GameTooltip:AddLine(" ")
@@ -932,8 +1123,11 @@ end
 ------------------------------------------------------------------------
 local ICON_PATTERNS = {
     "|TInterface\\RaidFrame\\ReadyCheck%-%a+[^|]*|t ?",
+    "|A:creditsscreen%-assets%-buttons%-fastforward[^|]*|a ?", -- catch-up ">>"
+    -- markers of older Ketchup versions, so a stale one never sticks
+    "|cffffa526\194\187|r ?",
     "|TInterface\\COMMON\\Indicator%-Gray[^|]*|t ?",
-    "|cff8a8a89%-|r ?", -- fallback marker for "none"
+    "|cff8a8a89%-|r ?",
 }
 local function StripIcons(text)
     for _, pattern in ipairs(ICON_PATTERNS) do
@@ -942,24 +1136,11 @@ local function StripIcons(text)
     return text
 end
 
--- "none" gets a grey dot so it can't be confused with the yellow "?" of "together".
-local noneIcon
-local function NoneIcon()
-    if not noneIcon then
-        local path = "Interface\\COMMON\\Indicator-Gray"
-        if GetFileIDFromPath and GetFileIDFromPath(path) then
-            noneIcon = "|T" .. path .. ":0|t "
-        else
-            noneIcon = "|cff8a8a89-|r "
-        end
-    end
-    return noneIcon
-end
-
-local function InlineIcon(status)
+-- size: pixel size for atlas icons (textures use the font height via ":0")
+local function InlineIcon(status, size)
     local style = MARKERS[status]
     if not style then return "" end
-    if status == "none" then return NoneIcon() end
+    if style.atlas then return CatchupMarkup(size or 14) .. " " end
     return "|T" .. style.tex .. ":0|t "
 end
 
@@ -981,7 +1162,9 @@ local function MarkTitle(fs, questID)
     if not cur or cur == "" then return end
     local base = StripIcons(cur)
     local status = K.db and K.db.settings.questLogMarkers and questID and K:GetSyncStatus(questID)
-    local new = status and MARKERS[status] and (InlineIcon(status) .. base) or base
+    local _, fontSize = fs:GetFont()
+    local size = math.floor((fontSize or 12) + 2) -- same size as in the picked preview
+    local new = status and MARKERS[status] and (InlineIcon(status, size) .. base) or base
     if new ~= cur then
         fs.ketchupSetting = true
         fs:SetText(new)
@@ -1064,9 +1247,13 @@ function UI:UpdateQuestLogMarkers()
             if style then
                 local m = GetMarker(button)
                 m.questID = questID
-                m.icon:SetTexture(style.tex)
-                m.icon:SetDesaturated(style.grey and true or false)
-                m.icon:SetAlpha(style.grey and 0.5 or 1)
+                if style.atlas then
+                    m.icon:SetAtlas(style.atlas)
+                    m.icon:SetVertexColor(style.rgb[1] / 255, style.rgb[2] / 255, style.rgb[3] / 255)
+                else
+                    m.icon:SetTexture(style.tex)
+                    m.icon:SetVertexColor(1, 1, 1)
+                end
                 -- keep clear of the "(Complete)" / "Elite" tag on the right
                 local tag = _G["QuestLogTitle" .. i .. "Tag"]
                 local pad = 4
@@ -1104,74 +1291,6 @@ function UI:HookQuestLog()
     end
 end
 
--- Prints diagnostics, stores them in KetchupDB.debugLog (readable from the
--- SavedVariables file after /reload) and takes a screenshot.
-function UI:DebugQuestLog()
-    local lines = {}
-    local function out(...)
-        local parts = {}
-        for i = 1, select("#", ...) do parts[#parts + 1] = tostring((select(i, ...))) end
-        local line = table.concat(parts, " ")
-        lines[#lines + 1] = line:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
-        K:Print(line)
-    end
-    local function yn(v) return v and "|cff20ff20yes|r" or "|cffff5555no|r" end
-
-    out("QuestLogFrame:", yn(QuestLogFrame), " QuestLog_Update:", yn(type(QuestLog_Update) == "function"))
-    out("QuestMapFrame:", yn(QuestMapFrame), " shown:", yn(QuestMapFrame and QuestMapFrame:IsVisible()),
-        " WorldMapFrame shown:", yn(WorldMapFrame and WorldMapFrame:IsShown()))
-    out("QuestScrollFrame:", yn(QuestScrollFrame), " titleFramePool:", yn(ModernPool()),
-        " QuestLogQuests_Update:", yn(type(QuestLogQuests_Update) == "function"))
-    out("hooked:", tostring(self.questLogHooked), " markers on:", yn(K.db.settings.questLogMarkers),
-        " partner:", tostring(K.db.selected), " my log cached:", yn(K.lastMyLog))
-    local pool = ModernPool()
-    if pool then
-        local n = 0
-        for row in pool:EnumerateActive() do
-            n = n + 1
-            local status = row.questID and K:GetSyncStatus(row.questID)
-            local text = row.Text and row.Text:GetText()
-            if n <= 6 then
-                out(("  row %d: questID=%s status=%s text=%s"):format(n, tostring(row.questID),
-                    tostring(status), tostring(text)))
-            else
-                lines[#lines + 1] = ("  row %d: questID=%s status=%s text=%s"):format(n, tostring(row.questID),
-                    tostring(status), tostring(text))
-            end
-        end
-        out("active rows:", n, "(open the quest log first if 0)")
-    end
-    -- frame layout around the quest log, for placing the Ketchup button
-    local function geo(name, f)
-        if f and f.GetRect then
-            local l, b, w, h = f:GetRect()
-            lines[#lines + 1] = ("%s rect: left=%s bottom=%s w=%s h=%s shown=%s"):format(name,
-                tostring(l), tostring(b), tostring(w), tostring(h), tostring(f:IsShown()))
-        end
-    end
-    geo("WorldMapFrame", WorldMapFrame)
-    geo("WorldMapFrame.BorderFrame", WorldMapFrame and WorldMapFrame.BorderFrame)
-    geo("QuestMapFrame", QuestMapFrame)
-    geo("QuestScrollFrame", QuestScrollFrame)
-    geo("KetchupQuestLogButton", self.questLogButton)
-    local border = WorldMapFrame and WorldMapFrame.BorderFrame
-    geo("BorderFrame.CloseButton", border and border.CloseButton)
-    geo("BorderFrame.MaximizeMinimizeFrame", border and border.MaximizeMinimizeFrame)
-    geo("QuestScrollFrame.SearchBox", QuestScrollFrame and QuestScrollFrame.SearchBox)
-    if QuestMapFrame then
-        for k, v in pairs(QuestMapFrame) do
-            if type(v) == "table" and v.GetObjectType and v.GetRect then geo("QuestMapFrame." .. tostring(k), v) end
-        end
-    end
-
-    lines[#lines + 1] = "time: " .. date("%Y-%m-%d %H:%M:%S")
-    K.db.debugLog = lines
-    K:Print("Saved debug info. Taking a screenshot...")
-    C_Timer.After(0.5, function()
-        if Screenshot then pcall(Screenshot) end
-    end)
-end
-
 ------------------------------------------------------------------------
 -- Init & addon compartment
 ------------------------------------------------------------------------
@@ -1199,7 +1318,7 @@ function Ketchup_OnAddonCompartmentEnter(_, owner)
     GameTooltip:SetOwner(owner or UIParent, "ANCHOR_LEFT")
     GameTooltip:SetText("Ketchup", 1, 1, 1)
     local n = 0
-    for _ in pairs(K.db and K.db.partners or {}) do n = n + 1 end
+    for _ in pairs(K.db and K:VisiblePartners() or {}) do n = n + 1 end
     GameTooltip:AddLine(("%d partner(s) saved"):format(n), 0.8, 0.8, 0.8)
     GameTooltip:AddLine("|cffffd100Left-click|r open window", 1, 1, 1)
     GameTooltip:AddLine("|cffffd100Right-click|r sync with group", 1, 1, 1)
