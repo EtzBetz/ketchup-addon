@@ -1,7 +1,7 @@
 ## Interface: 16001
 ## Title: Ketchup
 ## Notes: Share quest progress with a friend and catch up on what they did while you were offline. Syncs in group or via an import string.
-## Author: Raphael
+## Author: EtzBetz
 ## Version: 1.0.0
 ## IconTexture: Interface\Icons\INV_Potion_49
 ## SavedVariables: KetchupDB
