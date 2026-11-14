@@ -78,7 +78,7 @@ ns.RegisterLocale("zhTW", {
     ["Sync icons in quest log"] = "任務日誌中的同步圖示",
     ["Show an icon per quest in your quest log:"] = "在任務日誌中為每個任務顯示圖示：",
     ["partner has this quest too"] = "夥伴也有此任務",
-    ["partner already turned it in, do it to catch up"] = "夥伴已交過，完成它來追上進度",
+    ["do it to catch up (partner turned it in or has every objective done)"] = "完成它來追上進度（夥伴已交任務或已完成所有目標）",
     ["partner doesn't have it"] = "夥伴沒有此任務",
     ["Warn on their active quests"] = "對方進行中的任務提醒",
     ["Show an on-screen warning when you make progress on a quest your partner has active, unless you're questing together: they're in your group, online and in the same zone."] = "當你推進夥伴也在進行的任務時，在畫面上顯示警告；但你們一起解任務時（夥伴在隊伍中、在線上且在同一區域）除外。",
@@ -142,6 +142,7 @@ ns.RegisterLocale("zhTW", {
     -- quest log icons
     ["Compare quest progress with your partner."] = "與夥伴比較任務進度。",
     ["%s already turned this in."] = "%s 已交過此任務。",
+    ["%s has completed all objectives but hasn't turned it in yet."] = "%s 已完成所有目標，但還沒有交任務。",
     ["Do it to catch up."] = "完成它來追上進度。",
     ["%s has this quest too."] = "%s 也有此任務。",
     ["Do it together."] = "一起完成吧。",

@@ -78,7 +78,7 @@ ns.RegisterLocale("zhCN", {
     ["Sync icons in quest log"] = "任务日志中的同步图标",
     ["Show an icon per quest in your quest log:"] = "在任务日志中为每个任务显示图标：",
     ["partner has this quest too"] = "搭档也有此任务",
-    ["partner already turned it in, do it to catch up"] = "搭档已交过，完成它来追上进度",
+    ["do it to catch up (partner turned it in or has every objective done)"] = "完成它来追上进度（搭档已交任务或已完成所有目标）",
     ["partner doesn't have it"] = "搭档没有此任务",
     ["Warn on their active quests"] = "对方进行中的任务提醒",
     ["Show an on-screen warning when you make progress on a quest your partner has active, unless you're questing together: they're in your group, online and in the same zone."] = "当你推进搭档也在进行的任务时，在屏幕上显示警告；但你们一起做任务时（搭档在队伍中、在线且在同一区域）除外。",
@@ -142,6 +142,7 @@ ns.RegisterLocale("zhCN", {
     -- quest log icons
     ["Compare quest progress with your partner."] = "与搭档对比任务进度。",
     ["%s already turned this in."] = "%s 已交过此任务。",
+    ["%s has completed all objectives but hasn't turned it in yet."] = "%s 已完成所有目标，但还没有交任务。",
     ["Do it to catch up."] = "完成它来追上进度。",
     ["%s has this quest too."] = "%s 也有此任务。",
     ["Do it together."] = "一起完成吧。",

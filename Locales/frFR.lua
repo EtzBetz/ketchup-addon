@@ -78,7 +78,7 @@ ns.RegisterLocale("frFR", {
     ["Sync icons in quest log"] = "Icônes de synchro dans le journal",
     ["Show an icon per quest in your quest log:"] = "Affiche une icône par quête dans votre journal de quêtes :",
     ["partner has this quest too"] = "le partenaire a aussi cette quête",
-    ["partner already turned it in, do it to catch up"] = "le partenaire l'a déjà rendue, faites-la pour rattraper",
+    ["do it to catch up (partner turned it in or has every objective done)"] = "faites-la pour rattraper (le partenaire l'a rendue ou a rempli tous les objectifs)",
     ["partner doesn't have it"] = "le partenaire ne l'a pas",
     ["Warn on their active quests"] = "Avertir pour ses quêtes en cours",
     ["Show an on-screen warning when you make progress on a quest your partner has active, unless you're questing together: they're in your group, online and in the same zone."] = "Affiche un avertissement à l'écran quand vous progressez dans une quête que votre partenaire a en cours, sauf si vous jouez ensemble : il est dans votre groupe, en ligne et dans la même zone.",
@@ -142,6 +142,7 @@ ns.RegisterLocale("frFR", {
     -- quest log icons
     ["Compare quest progress with your partner."] = "Comparez votre progression avec votre partenaire.",
     ["%s already turned this in."] = "%s a déjà rendu cette quête.",
+    ["%s has completed all objectives but hasn't turned it in yet."] = "%s a rempli tous les objectifs mais n'a pas encore rendu la quête.",
     ["Do it to catch up."] = "Faites-la pour rattraper.",
     ["%s has this quest too."] = "%s a aussi cette quête.",
     ["Do it together."] = "Faites-la ensemble.",

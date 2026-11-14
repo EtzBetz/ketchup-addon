@@ -78,7 +78,7 @@ ns.RegisterLocale("koKR", {
     ["Sync icons in quest log"] = "퀘스트 목록에 동기화 아이콘",
     ["Show an icon per quest in your quest log:"] = "퀘스트 목록의 각 퀘스트에 아이콘을 표시합니다:",
     ["partner has this quest too"] = "파트너도 이 퀘스트를 가지고 있음",
-    ["partner already turned it in, do it to catch up"] = "파트너가 이미 완료함, 따라잡으려면 수행",
+    ["do it to catch up (partner turned it in or has every objective done)"] = "따라잡으려면 수행 (파트너가 완료 보고했거나 모든 목표를 달성함)",
     ["partner doesn't have it"] = "파트너에게 없음",
     ["Warn on their active quests"] = "파트너 진행 퀘스트 경고",
     ["Show an on-screen warning when you make progress on a quest your partner has active, unless you're questing together: they're in your group, online and in the same zone."] = "파트너가 진행 중인 퀘스트를 내가 진행하면 화면에 경고를 표시합니다. 단, 함께 퀘스트 중일 때(파트너가 파티에 있고, 접속 중이며, 같은 지역에 있을 때)는 제외합니다.",
@@ -142,6 +142,7 @@ ns.RegisterLocale("koKR", {
     -- quest log icons
     ["Compare quest progress with your partner."] = "파트너와 퀘스트 진행 상황을 비교합니다.",
     ["%s already turned this in."] = "%s 님이 이 퀘스트를 이미 완료했습니다.",
+    ["%s has completed all objectives but hasn't turned it in yet."] = "%s 님이 모든 목표를 달성했지만 아직 완료 보고하지 않았습니다.",
     ["Do it to catch up."] = "따라잡으려면 수행하세요.",
     ["%s has this quest too."] = "%s 님도 이 퀘스트를 가지고 있습니다.",
     ["Do it together."] = "함께 하세요.",

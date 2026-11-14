@@ -78,7 +78,7 @@ ns.RegisterLocale("ruRU", {
     ["Sync icons in quest log"] = "Значки синхронизации в журнале",
     ["Show an icon per quest in your quest log:"] = "Показывает значок у каждого задания в журнале:",
     ["partner has this quest too"] = "у напарника тоже есть это задание",
-    ["partner already turned it in, do it to catch up"] = "напарник уже сдал его, выполните, чтобы догнать",
+    ["do it to catch up (partner turned it in or has every objective done)"] = "выполните, чтобы догнать (напарник сдал его или выполнил все цели)",
     ["partner doesn't have it"] = "у напарника его нет",
     ["Warn on their active quests"] = "Предупреждать о его заданиях",
     ["Show an on-screen warning when you make progress on a quest your partner has active, unless you're questing together: they're in your group, online and in the same zone."] = "Показывает предупреждение на экране, когда вы продвигаетесь в задании, взятом напарником, если только вы не играете вместе: он в вашей группе, в сети и в той же зоне.",
@@ -142,6 +142,7 @@ ns.RegisterLocale("ruRU", {
     -- quest log icons
     ["Compare quest progress with your partner."] = "Сравните прогресс заданий с напарником.",
     ["%s already turned this in."] = "%s уже сдал(а) это задание.",
+    ["%s has completed all objectives but hasn't turned it in yet."] = "%s выполнил(а) все цели, но ещё не сдал(а) задание.",
     ["Do it to catch up."] = "Выполните его, чтобы догнать.",
     ["%s has this quest too."] = "У %s тоже есть это задание.",
     ["Do it together."] = "Выполните его вместе.",

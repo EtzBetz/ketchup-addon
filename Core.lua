@@ -489,7 +489,8 @@ end
 
 -- Compare one quest in my log against the selected partner.
 -- Returns status, partnerQuest, myQuest, partnerKey. Status is one of:
---   "catchup"  partner already turned it in -> do it to catch up
+--   "catchup"  partner already turned it in, or has every objective done
+--              (not turned in yet) -> do it to catch up
 --   "together" partner has it active, same progress or ahead of me -> do it together
 --   "ahead"    partner has it active, I'm further along -> stop
 --   "none"     partner neither has it nor completed it
@@ -502,6 +503,9 @@ function K:GetSyncStatus(questID)
     local pq = sets.log[questID]
     if not pq then return "none", nil, nil, key end
     local mine = (self.lastMyLog or self:GetMyLog())[questID]
+    -- every objective done, just not turned in yet: as good as done for the
+    -- partner, so it's mine to catch up on (unless mine is complete as well)
+    if pq.c == 1 and not (mine and mine.c == 1) then return "catchup", pq, mine, key end
     if mine then
         local meAhead = (mine.c == 1 and pq.c ~= 1)
         local theyAhead = (pq.c == 1 and mine.c ~= 1)

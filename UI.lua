@@ -303,7 +303,7 @@ function UI:Create()
         L["Show an icon per quest in your quest log:"] .. "\n"
         .. "|TInterface\\RaidFrame\\ReadyCheck-Ready:0|t  " .. L["partner has this quest too"] .. "\n"
         .. "|A:creditsscreen-assets-buttons-fastforward:14:14:0:0:255:165:38|a  "
-        .. L["partner already turned it in, do it to catch up"] .. "\n"
+        .. L["do it to catch up (partner turned it in or has every objective done)"] .. "\n"
         .. "|TInterface\\RaidFrame\\ReadyCheck-NotReady:0|t  " .. L["partner doesn't have it"],
         function() return K.db.settings.questLogMarkers end,
         function(v) K.db.settings.questLogMarkers = v; UI:UpdateQuestLogMarkers() end)
@@ -1116,7 +1116,11 @@ local function AddSyncLines(questID, asSection)
         GameTooltip:SetText("Ketchup", 1, 1, 1)
     end
     if status == "catchup" then
-        GameTooltip:AddLine(L["%s already turned this in."]:format(who), 1, 0.65, 0.15, true)
+        if pq then -- still in their log, every objective done
+            GameTooltip:AddLine(L["%s has completed all objectives but hasn't turned it in yet."]:format(who), 1, 0.65, 0.15, true)
+        else
+            GameTooltip:AddLine(L["%s already turned this in."]:format(who), 1, 0.65, 0.15, true)
+        end
         GameTooltip:AddLine(L["Do it to catch up."], 1, 1, 1, true)
     elseif status == "together" then
         GameTooltip:AddLine(L["%s has this quest too."]:format(who), 0.2, 1, 0.2, true)

@@ -78,7 +78,7 @@ ns.RegisterLocale("deDE", {
     ["Sync icons in quest log"] = "Sync-Symbole im Questlog",
     ["Show an icon per quest in your quest log:"] = "Zeigt für jede Quest ein Symbol in deinem Questlog:",
     ["partner has this quest too"] = "Partner hat diese Quest auch",
-    ["partner already turned it in, do it to catch up"] = "Partner hat sie schon abgegeben – erledige sie zum Aufholen",
+    ["do it to catch up (partner turned it in or has every objective done)"] = "erledige sie zum Aufholen (Partner hat sie abgegeben oder alle Questziele erfüllt)",
     ["partner doesn't have it"] = "Partner hat sie nicht",
     ["Warn on their active quests"] = "Bei Partner-Quests warnen",
     ["Show an on-screen warning when you make progress on a quest your partner has active, unless you're questing together: they're in your group, online and in the same zone."] = "Zeigt eine Warnung auf dem Bildschirm, wenn du bei einer Quest vorankommst, die dein Partner auch aktiv hat – außer ihr questet gerade zusammen: dein Partner ist in deiner Gruppe, online und im selben Gebiet.",
@@ -142,6 +142,7 @@ ns.RegisterLocale("deDE", {
     -- quest log icons
     ["Compare quest progress with your partner."] = "Vergleiche deinen Questfortschritt mit deinem Partner.",
     ["%s already turned this in."] = "%s hat diese Quest schon abgegeben.",
+    ["%s has completed all objectives but hasn't turned it in yet."] = "%s hat alle Questziele erfüllt, die Quest aber noch nicht abgegeben.",
     ["Do it to catch up."] = "Erledige sie, um aufzuholen.",
     ["%s has this quest too."] = "%s hat diese Quest auch.",
     ["Do it together."] = "Macht sie zusammen.",
