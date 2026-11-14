@@ -8,7 +8,7 @@ local L = ns.L
 local UI = {}
 K.UI = UI
 
-local ICON = "Interface\\Icons\\INV_Potion_49"
+local ICON = "Interface\\AddOns\\Ketchup\\Media\\Logo" -- 64x64 TGA, full-bleed art
 local TABS = {
     { key = "completed", label = L["Done by them, not you"] },
     { key = "log",       label = L["Their quest log"] },
@@ -215,7 +215,6 @@ function UI:Create()
     icon:SetSize(16, 16)
     icon:SetPoint("TOPLEFT", 8, -5)
     icon:SetTexture(ICON)
-    icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 
     local title = Style.Text(f, 13)
     title:SetPoint("LEFT", icon, "RIGHT", 6, 0)
@@ -803,7 +802,6 @@ function UI:CreateStringDialog()
     icon:SetSize(16, 16)
     icon:SetPoint("TOPLEFT", 8, -5)
     icon:SetTexture(ICON)
-    icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 
     d.titleText = Style.Text(d, 13)
     d.titleText:SetPoint("LEFT", icon, "RIGHT", 6, 0)
@@ -948,7 +946,11 @@ function UI:CreateMinimapButton()
     icon:SetSize(20, 20)
     icon:SetPoint("TOPLEFT", 7, -5)
     icon:SetTexture(ICON)
-    icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    -- round inside the tracking ring, like other minimap buttons
+    local mask = b:CreateMaskTexture()
+    mask:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+    mask:SetAllPoints(icon)
+    icon:AddMaskTexture(mask)
 
     local border = b:CreateTexture(nil, "OVERLAY")
     border:SetSize(53, 53)
