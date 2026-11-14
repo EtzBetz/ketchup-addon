@@ -1,6 +1,7 @@
 -- Ketchup: encoding of quest snapshots into compact, chat-safe strings.
 -- Pipeline: table -> CBOR -> deflate -> Base64.
 local _, ns = ...
+local L = ns.L
 
 local S = {}
 ns.Serialize = S
@@ -15,7 +16,7 @@ end
 
 function S.Encode(tbl)
     if not S.IsAvailable() then
-        return nil, "C_EncodingUtil is not available on this client"
+        return nil, L["C_EncodingUtil is not available on this client"]
     end
     local ok, result = pcall(function()
         return E.EncodeBase64(E.CompressString(E.SerializeCBOR(tbl)))
@@ -26,15 +27,15 @@ end
 
 function S.Decode(str)
     if not S.IsAvailable() then
-        return nil, "C_EncodingUtil is not available on this client"
+        return nil, L["C_EncodingUtil is not available on this client"]
     end
-    if type(str) ~= "string" or str == "" then return nil, "empty data" end
+    if type(str) ~= "string" or str == "" then return nil, L["empty data"] end
     local ok, decoded = pcall(E.DecodeBase64, str)
-    if not ok or not decoded then return nil, "invalid Base64" end
+    if not ok or not decoded then return nil, L["invalid Base64"] end
     local ok2, decompressed = pcall(E.DecompressString, decoded)
-    if not ok2 or not decompressed then return nil, "decompression failed" end
+    if not ok2 or not decompressed then return nil, L["decompression failed"] end
     local ok3, tbl = pcall(E.DeserializeCBOR, decompressed)
-    if not ok3 or type(tbl) ~= "table" then return nil, "invalid payload" end
+    if not ok3 or type(tbl) ~= "table" then return nil, L["invalid payload"] end
     return tbl
 end
 
@@ -45,10 +46,10 @@ function S.ToExportString(snapshot)
 end
 
 function S.FromExportString(text)
-    if type(text) ~= "string" then return nil, "no text" end
+    if type(text) ~= "string" then return nil, L["no text"] end
     -- Messengers like to wrap lines or add spaces: strip all whitespace.
     text = text:gsub("%s+", "")
     local start = text:find(S.EXPORT_PREFIX, 1, true)
-    if not start then return nil, "this is not a Ketchup string (missing " .. S.EXPORT_PREFIX .. ")" end
+    if not start then return nil, L["this is not a Ketchup string (missing %s)"]:format(S.EXPORT_PREFIX) end
     return S.Decode(text:sub(start + #S.EXPORT_PREFIX))
 end

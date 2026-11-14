@@ -1,5 +1,6 @@
 -- Ketchup: core state, quest snapshots, diffing and events.
 local ADDON, ns = ...
+local L = ns.L
 
 local K = {}
 ns.K = K
@@ -212,10 +213,10 @@ end
 ------------------------------------------------------------------------
 local function SanitizeSnapshot(s)
     if type(s) ~= "table" or type(s.n) ~= "string" or type(s.c) ~= "table" then
-        return nil, "malformed snapshot"
+        return nil, L["malformed snapshot"]
     end
     if tonumber(s.v) ~= K.PROTOCOL then
-        return nil, "incompatible Ketchup version (protocol " .. tostring(s.v) .. ")"
+        return nil, L["incompatible Ketchup version (protocol %s)"]:format(tostring(s.v))
     end
     local out = {
         v = K.PROTOCOL,
@@ -262,11 +263,11 @@ function K:StorePartnerSnapshot(snapshot, source, senderKey)
     if not s then return nil, err end
     local key = senderKey or self:NormalizeName(s.r ~= "" and (s.n .. "-" .. s.r) or s.n)
     if self:IsMe(key, s) then
-        return nil, "that is your own progress"
+        return nil, L["that is your own progress"]
     end
     local existing = self.db.partners[key]
     if existing and (existing.ts or 0) > s.ts then
-        return nil, "older than the data already stored for " .. self:ShortName(key)
+        return nil, L["older than the data already stored for %s"]:format(self:ShortName(key))
     end
     s.source = source
     s.received = time()
@@ -332,7 +333,8 @@ function K:HasQuestie()
     return ok and q ~= nil
 end
 
-local OTHER_ZONE = "Other / Class / Profession"
+local OTHER_ZONE = L["Other / Class / Profession"]
+local UNKNOWN_ZONE = L["Unknown zone"]
 
 function K:GetQuestMeta(id, fallbackTitle, fallbackLevel)
     local cached = self.metaCache[id]
@@ -360,12 +362,12 @@ function K:GetQuestMeta(id, fallbackTitle, fallbackLevel)
         if not meta.title and fallbackTitle and fallbackTitle ~= "" then meta.title = fallbackTitle end
     end
     meta.level = meta.level or fallbackLevel
-    meta.zone = meta.zone or "Unknown zone"
+    meta.zone = meta.zone or UNKNOWN_ZONE
 
     if meta.title then
         self.metaCache[id] = meta
     else
-        meta.title = "Quest #" .. id
+        meta.title = L["Quest #%d"]:format(id)
         if C_QuestLog.RequestLoadQuestByID then C_QuestLog.RequestLoadQuestByID(id) end
     end
     return meta
@@ -456,8 +458,8 @@ function K:ComputeDiff(key)
 
     local function sorter(a, b)
         if a.zone ~= b.zone then
-            if a.zone == OTHER_ZONE or a.zone == "Unknown zone" then return false end
-            if b.zone == OTHER_ZONE or b.zone == "Unknown zone" then return true end
+            if a.zone == OTHER_ZONE or a.zone == UNKNOWN_ZONE then return false end
+            if b.zone == OTHER_ZONE or b.zone == UNKNOWN_ZONE then return true end
             return a.zone < b.zone
         end
         local la, lb = a.level or 0, b.level or 0
@@ -536,16 +538,16 @@ function K:WarnStop(questID, title, partnerKey, pq, reason)
     local detail = ""
     for _, o in ipairs(pq and pq.o or {}) do
         if o.n > 0 then
-            detail = (" (they're at %d/%d)"):format(o.h, o.n)
+            detail = L[" (they're at %d/%d)"]:format(o.h, o.n)
             break
         end
     end
-    local msg = ("%s has \"%s\" active%s - stop and do it together!"):format(who, title, detail)
+    local msg = L["%s has \"%s\" active%s - stop and do it together!"]:format(who, title, detail)
     if RaidNotice_AddMessage and RaidWarningFrame then
         RaidNotice_AddMessage(RaidWarningFrame, "Ketchup: " .. msg, ChatTypeInfo and ChatTypeInfo.RAID_WARNING or { r = 1, g = 0.3, b = 0.1 })
     end
     PlaySound(SOUNDKIT and SOUNDKIT.RAID_WARNING or 8959, "Master")
-    self:Print("|cffff6633" .. msg .. "|r" .. (reason and (" |cff999999(" .. who .. " is " .. reason .. ")|r") or ""))
+    self:Print("|cffff6633" .. msg .. "|r" .. (reason and (" |cff999999(" .. reason:format(who) .. ")|r") or ""))
 end
 
 -- Snapshot my log, compare with the previous one, warn about progress on
@@ -568,7 +570,7 @@ function K:CheckProgress()
         if old and Progressed(old, q) then
             local status, pq = self:GetSyncStatus(id)
             if status == "together" or status == "ahead" then
-                self:WarnStop(id, q.t ~= "" and q.t or ("Quest #" .. id), key, pq, reason)
+                self:WarnStop(id, q.t ~= "" and q.t or L["Quest #%d"]:format(id), key, pq, reason)
             end
         end
     end
@@ -664,12 +666,12 @@ local function SameArea(unit)
 end
 
 -- Are we questing together right now? In my group, online and in the same zone.
--- Returns together (bool), reason (string, when not together).
+-- Returns together (bool), reason (format string taking the partner name, when not together).
 function K:IsQuestingTogether(key)
     local unit = self:FindGroupUnit(key)
-    if not unit then return false, "not in your group" end
-    if not UnitIsConnected(unit) then return false, "offline" end
-    if not SameArea(unit) then return false, "in another zone" end
+    if not unit then return false, L["%s is not in your group"] end
+    if not UnitIsConnected(unit) then return false, L["%s is offline"] end
+    if not SameArea(unit) then return false, L["%s is in another zone"] end
     return true
 end
 
@@ -701,7 +703,7 @@ end
 function K:ShareNow(manual)
     if not manual and not self.db.settings.autoShare then return end
     if not self:GetGroupChannel() then
-        if manual then self:Print("You are not in a group. Use Export to share via string instead.") end
+        if manual then self:Print(L["You are not in a group. Use Export to share via string instead."]) end
         return
     end
     local snapshot, sig = self:BuildSnapshot()
@@ -759,7 +761,7 @@ end
 
 function handlers.PLAYER_LOGIN()
     if not ns.Serialize.IsAvailable() then
-        K:Print("|cffff5555C_EncodingUtil is missing on this client, syncing will not work.|r")
+        K:Print("|cffff5555" .. L["C_EncodingUtil is missing on this client, syncing will not work."] .. "|r")
     end
     K.Comm:Init()
     K:ValidateSelection() -- never compare against my own character
@@ -818,11 +820,11 @@ SlashCmdList.KETCHUP = function(msg)
         K.db.settings.minimap.hide = not K.db.settings.minimap.hide
         K.UI:UpdateMinimapButton()
     elseif msg == "help" then
-        K:Print("/ketchup - toggle window")
-        K:Print("/ketchup sync - ask group members for their progress")
-        K:Print("/ketchup share - send your progress to the group now")
-        K:Print("/ketchup export | import - share progress via string")
-        K:Print("/ketchup minimap - toggle the minimap button")
+        K:Print("/ketchup - " .. L["toggle window"])
+        K:Print("/ketchup sync - " .. L["ask group members for their progress"])
+        K:Print("/ketchup share - " .. L["send your progress to the group now"])
+        K:Print("/ketchup export | import - " .. L["share progress via string"])
+        K:Print("/ketchup minimap - " .. L["toggle the minimap button"])
     else
         K.UI:Toggle()
     end

@@ -10,6 +10,16 @@
 ## AddonCompartmentFuncOnEnter: Ketchup_OnAddonCompartmentEnter
 ## AddonCompartmentFuncOnLeave: Ketchup_OnAddonCompartmentLeave
 
+Locale.lua
+Locales\deDE.lua
+Locales\frFR.lua
+Locales\esES.lua
+Locales\itIT.lua
+Locales\ptBR.lua
+Locales\ruRU.lua
+Locales\koKR.lua
+Locales\zhCN.lua
+Locales\zhTW.lua
 Serialize.lua
 Core.lua
 Style.lua

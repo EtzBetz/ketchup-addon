@@ -3,22 +3,23 @@ local _, ns = ...
 local K = ns.K
 local S = ns.Serialize
 local Style = ns.Style
+local L = ns.L
 
 local UI = {}
 K.UI = UI
 
 local ICON = "Interface\\Icons\\INV_Potion_49"
 local TABS = {
-    { key = "completed", label = "Done by them, not you" },
-    { key = "log",       label = "Their quest log" },
-    { key = "ahead",     label = "You're behind on" },
+    { key = "completed", label = L["Done by them, not you"] },
+    { key = "log",       label = L["Their quest log"] },
+    { key = "ahead",     label = L["You're behind on"] },
 }
 
 local LOG_STATUS = {
-    missing = "|cffff9933not in your log|r",
-    even    = "|cff20ff20in sync|r",
-    myahead = "|cff20ff20you're ahead|r",
-    done    = "|cff888888you already turned it in|r",
+    missing = "|cffff9933" .. L["not in your log"] .. "|r",
+    even    = "|cff20ff20" .. L["in sync"] .. "|r",
+    myahead = "|cff20ff20" .. L["you're ahead"] .. "|r",
+    done    = "|cff888888" .. L["you already turned it in"] .. "|r",
 }
 local currentTab = "completed"
 local transfers = {} -- [key] = "got/n"
@@ -27,17 +28,18 @@ local WIDTH, HEIGHT = 940, 600
 local PAD = 10
 local TITLE_H, FOOTER_H = 25, 24
 local SIDEBAR_W = 240
+local MAIN_W = WIDTH - SIDEBAR_W - 3 * PAD -- width of the right-hand area
 
 ------------------------------------------------------------------------
 -- helpers
 ------------------------------------------------------------------------
 local function Ago(ts)
-    if not ts or ts == 0 then return "never" end
+    if not ts or ts == 0 then return L["never"] end
     local d = time() - ts
-    if d < 60 then return "just now" end
-    if d < 3600 then return math.floor(d / 60) .. " min ago" end
-    if d < 86400 then return math.floor(d / 3600) .. " h ago" end
-    return math.floor(d / 86400) .. " d ago"
+    if d < 60 then return L["just now"] end
+    if d < 3600 then return L["%d min ago"]:format(math.floor(d / 60)) end
+    if d < 86400 then return L["%d h ago"]:format(math.floor(d / 3600)) end
+    return L["%d d ago"]:format(math.floor(d / 86400))
 end
 
 local function Tooltip(frame, title, text)
@@ -89,6 +91,16 @@ local function MakeCheck(parent, label, tooltip, get, set)
     return c
 end
 
+-- Long translations: cut a checkbox label to maxWidth ("…"); the tooltip
+-- title still shows the full text.
+local function FitCheckLabel(c, maxWidth)
+    maxWidth = math.floor(maxWidth)
+    if c.label:GetStringWidth() > maxWidth then
+        c.label:SetWidth(maxWidth)
+        c:SetHitRectInsets(0, -(maxWidth + 6), 0, 0)
+    end
+end
+
 local function SectionLabel(parent, text)
     local fs = Style.Text(parent, 10, 0.55, 0.55, 0.55)
     fs:SetText(text)
@@ -116,10 +128,26 @@ local function SetRows(box, rows)
     box:SetDataProvider(CreateDataProvider(rows), retain)
 end
 
+-- "Horde" / "Alliance" in the client's language
+local function FactionName(fa)
+    if not fa or fa == "" then return "" end
+    return _G["FACTION_" .. fa:upper()] or fa
+end
+
 local function ClassRGB(classFile)
     local c = classFile and RAID_CLASS_COLORS and RAID_CLASS_COLORS[classFile]
     if c then return c.r, c.g, c.b end
     return 0.7, 0.7, 0.7
+end
+
+-- A transparent child frame to draw our own textures on. EllesmereUI
+-- re-fades every texture directly on the frames it skins (Shell/Panel
+-- "restrip"), so icons, dots and color bars must not live on those frames.
+local function Canvas(parent)
+    local c = CreateFrame("Frame", nil, parent)
+    c:SetAllPoints()
+    c:SetFrameLevel(parent:GetFrameLevel() + 2)
+    return c
 end
 
 -- round dot (online indicator)
@@ -136,24 +164,24 @@ end
 
 local function ObjectiveSummary(q)
     if not q then return "" end
-    if q.c == 1 then return "|cff20ff20ready to turn in|r" end
+    if q.c == 1 then return "|cff20ff20" .. L["ready to turn in"] .. "|r" end
     local done, total = 0, 0
     for _, o in ipairs(q.o or {}) do
         total = total + 1
         if o.f == 1 then done = done + 1 end
     end
     if total == 0 then return "" end
-    return ("%d/%d objectives"):format(done, total)
+    return L["%d/%d objectives"]:format(done, total)
 end
 
 local function AheadSummary(e)
     local pq, mq = e.partnerQuest, e.myQuest
     if not pq or not mq then return "" end
-    if pq.c == 1 and mq.c ~= 1 then return "|cff20ff20they can turn it in|r" end
+    if pq.c == 1 and mq.c ~= 1 then return "|cff20ff20" .. L["they can turn it in"] .. "|r" end
     for j, po in ipairs(pq.o or {}) do
         local mo = mq.o and mq.o[j]
         if mo and po.h > mo.h then
-            return ("them %d/%d  |cff777777·|r  you %d/%d"):format(po.h, po.n, mo.h, mo.n)
+            return L["them %d/%d"]:format(po.h, po.n) .. "  |cff777777·|r  " .. L["you %d/%d"]:format(mo.h, mo.n)
         end
     end
     return ""
@@ -183,7 +211,7 @@ function UI:Create()
     self.frame = f
 
     -- Title bar ----------------------------------------------------------
-    local icon = f:CreateTexture(nil, "ARTWORK")
+    local icon = Canvas(f):CreateTexture(nil, "ARTWORK")
     icon:SetSize(16, 16)
     icon:SetPoint("TOPLEFT", 8, -5)
     icon:SetTexture(ICON)
@@ -195,7 +223,7 @@ function UI:Create()
 
     local subtitle = Style.Text(f, 11, 0.5, 0.5, 0.5)
     subtitle:SetPoint("LEFT", title, "RIGHT", 8, -1)
-    subtitle:SetText("quest catch-up")
+    subtitle:SetText(L["quest catch-up"])
 
     local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
     close:SetSize(24, 24)
@@ -206,7 +234,8 @@ function UI:Create()
     -- Footer -------------------------------------------------------------
     local hint = Style.Text(f, 11, 0.5, 0.5, 0.5)
     hint:SetPoint("BOTTOMLEFT", 12, 6)
-    hint:SetText("Hover a quest for details  ·  Shift-click: link in chat  ·  Right-click: ignore / unignore")
+    hint:SetText(table.concat({ L["Hover a quest for details"], L["Shift-click: link in chat"],
+        L["Right-click: ignore / unignore"] }, "  ·  "))
 
     local version = Style.Text(f, 11, 0.4, 0.4, 0.4)
     version:SetPoint("BOTTOMRIGHT", -12, 6)
@@ -221,7 +250,7 @@ function UI:Create()
     Style.Apply("Panel", side, { inset = true })
     local innerW = SIDEBAR_W - 24
 
-    local partnersLabel = SectionLabel(side, "PARTNERS")
+    local partnersLabel = SectionLabel(side, L["PARTNERS"])
     partnersLabel:SetPoint("TOPLEFT", 12, -12)
 
     local partnerBox = CreateList(side, 48, function(button, data) UI:InitPartnerRow(button, data) end)
@@ -234,10 +263,10 @@ function UI:Create()
     emptyPartners:SetPoint("TOPLEFT", partnerBox, "TOPLEFT", 6, -8)
     emptyPartners:SetPoint("RIGHT", partnerBox, "RIGHT", -6, 0)
     emptyPartners:SetWordWrap(true)
-    emptyPartners:SetText("No partner data yet.\n\nGroup up with your friend (both need Ketchup), or import the string they exported.")
+    emptyPartners:SetText(L["No partner data yet.\n\nGroup up with your friend (both need Ketchup), or import the string they exported."])
     self.emptyPartners = emptyPartners
 
-    local actionsLabel = SectionLabel(side, "ACTIONS")
+    local actionsLabel = SectionLabel(side, L["ACTIONS"])
     actionsLabel:SetPoint("TOPLEFT", partnerBox, "BOTTOMLEFT", 6, -14)
 
     local y = -(28 + 4 * 48 + 32)
@@ -248,43 +277,46 @@ function UI:Create()
         y = y - 30
         return b
     end
-    addButton("Sync with group", function() K.Comm:RequestFromGroup() end,
-        "Ask every group member running Ketchup for their current progress, and send yours.")
-    addButton("Export my progress", function() UI:ShowExport() end,
-        "Create a string with your quest progress that you can paste to your partner over any messenger.")
-    addButton("Import string", function() UI:ShowImport() end,
-        "Paste a string your partner exported.")
-    self.removeButton = addButton("Remove selected partner", function()
+    addButton(L["Sync with group"], function() K.Comm:RequestFromGroup() end,
+        L["Ask every group member running Ketchup for their current progress, and send yours."])
+    addButton(L["Export my progress"], function() UI:ShowExport() end,
+        L["Create a string with your quest progress that you can paste to your partner over any messenger."])
+    addButton(L["Import string"], function() UI:ShowImport() end,
+        L["Paste a string your partner exported."])
+    self.removeButton = addButton(L["Remove selected partner"], function()
         local key = K.db.selected
         if key then
             StaticPopup_Show("KETCHUP_REMOVE_PARTNER", K:ShortName(key), nil, key)
         end
     end)
 
-    local settingsLabel = SectionLabel(side, "SETTINGS")
+    local settingsLabel = SectionLabel(side, L["SETTINGS"])
     settingsLabel:SetPoint("TOPLEFT", 12, y - 10)
 
-    local auto = MakeCheck(side, "Auto-share while grouped",
-        "Automatically send your progress to group members running Ketchup whenever your quests change.",
+    local auto = MakeCheck(side, L["Auto-share while grouped"],
+        L["Automatically send your progress to group members running Ketchup whenever your quests change."],
         function() return K.db.settings.autoShare end,
         function(v) K.db.settings.autoShare = v; if v then K:ScheduleShare(1, true) end end)
     auto:SetPoint("TOPLEFT", 10, y - 26)
 
-    local markers = MakeCheck(side, "Sync icons in quest log",
-        "Show an icon per quest in your quest log:\n"
-        .. "|TInterface\\RaidFrame\\ReadyCheck-Ready:0|t  partner has this quest too\n"
-        .. "|A:creditsscreen-assets-buttons-fastforward:14:14:0:0:255:165:38|a  partner already turned it in, do it to catch up\n"
-        .. "|TInterface\\RaidFrame\\ReadyCheck-NotReady:0|t  partner doesn't have it",
+    local markers = MakeCheck(side, L["Sync icons in quest log"],
+        L["Show an icon per quest in your quest log:"] .. "\n"
+        .. "|TInterface\\RaidFrame\\ReadyCheck-Ready:0|t  " .. L["partner has this quest too"] .. "\n"
+        .. "|A:creditsscreen-assets-buttons-fastforward:14:14:0:0:255:165:38|a  "
+        .. L["partner already turned it in, do it to catch up"] .. "\n"
+        .. "|TInterface\\RaidFrame\\ReadyCheck-NotReady:0|t  " .. L["partner doesn't have it"],
         function() return K.db.settings.questLogMarkers end,
         function(v) K.db.settings.questLogMarkers = v; UI:UpdateQuestLogMarkers() end)
     markers:SetPoint("TOPLEFT", auto, "BOTTOMLEFT", 0, -4)
 
-    local warn = MakeCheck(side, "Warn on their active quests",
-        "Show an on-screen warning when you make progress on a quest your partner has active, "
-        .. "unless you're questing together: they're in your group, online and in the same zone.",
+    local warn = MakeCheck(side, L["Warn on their active quests"],
+        L["Show an on-screen warning when you make progress on a quest your partner has active, unless you're questing together: they're in your group, online and in the same zone."],
         function() return K.db.settings.warnProgress end,
         function(v) K.db.settings.warnProgress = v end)
     warn:SetPoint("TOPLEFT", markers, "BOTTOMLEFT", 0, -4)
+    for _, c in ipairs({ auto, markers, warn }) do
+        FitCheckLabel(c, SIDEBAR_W - 10 - 24 - 8) -- stay inside the sidebar
+    end
 
     -- Main area --------------------------------------------------------------
     local main = CreateFrame("Frame", nil, f)
@@ -296,29 +328,35 @@ function UI:Create()
     local card = CreateFrame("Frame", nil, main)
     card:SetPoint("TOPLEFT")
     card:SetPoint("TOPRIGHT")
-    card:SetHeight(66)
+    card:SetHeight(76)
     Style.Apply("Panel", card)
 
-    local classBar = card:CreateTexture(nil, "ARTWORK")
+    local classBar = Canvas(card):CreateTexture(nil, "ARTWORK")
     classBar:SetPoint("TOPLEFT", 1, -1)
     classBar:SetPoint("BOTTOMLEFT", 1, 1)
     classBar:SetWidth(3)
     self.classBar = classBar
 
     local header = Style.Text(card, 18)
-    header:SetPoint("TOPLEFT", 16, -11)
+    header:SetPoint("TOPLEFT", 16, -10)
     self.header = header
 
+    -- two stat lines, so longer languages don't get cut off
     local sub = Style.Text(card, 11, 0.62, 0.62, 0.62)
     sub:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -7)
     sub:SetPoint("RIGHT", card, "RIGHT", -12, 0)
     self.sub = sub
 
+    local sub2 = Style.Text(card, 11, 0.5, 0.5, 0.5)
+    sub2:SetPoint("TOPLEFT", sub, "BOTTOMLEFT", 0, -4)
+    sub2:SetPoint("RIGHT", card, "RIGHT", -12, 0)
+    self.sub2 = sub2
+
     local pill = CreateFrame("Frame", nil, card)
     pill:SetSize(130, 20)
     pill:SetPoint("TOPRIGHT", -12, -12)
     Style.Apply("Panel", pill, { inset = true })
-    pill.dot = Dot(pill, 7)
+    pill.dot = Dot(Canvas(pill), 7)
     pill.dot:SetPoint("LEFT", 8, 0)
     pill.text = Style.Text(pill, 11, 0.85, 0.85, 0.85)
     pill.text:SetPoint("LEFT", pill.dot, "RIGHT", 6, 0)
@@ -344,27 +382,45 @@ function UI:Create()
     search:SetSize(190, 22)
     search:SetPoint("TOPLEFT", card, "BOTTOMLEFT", 6, -46)
     search:HookScript("OnTextChanged", function() UI:RebuildRows() end)
-    Style.Apply("EditBox", search, { padInput = true })
     self.search = search
 
-    local doable = MakeCheck(main, "Only doable now",
-        "Uses Questie to hide quests you don't have yet and can't pick up yet (level, race/class, missing prerequisite).",
+    local doable = MakeCheck(main, L["Only doable now"],
+        L["Uses Questie to hide quests you don't have yet and can't pick up yet (level, race/class, missing prerequisite)."],
         function() return K.db.settings.onlyDoable end,
         function(v) K.db.settings.onlyDoable = v; UI:RebuildRows() end)
     doable:SetPoint("LEFT", search, "RIGHT", 16, 0)
     self.doableCheck = doable
 
-    local hideLog = MakeCheck(main, "Hide quests in my log",
-        "On the 'Done by them, not you' tab: hide quests you already have in your quest log.",
+    local hideLog = MakeCheck(main, L["Hide quests in my log"],
+        L["On the '%s' tab: hide quests you already have in your quest log."]:format(L["Done by them, not you"]),
         function() return K.db.settings.hideInMyLog end,
         function(v) K.db.settings.hideInMyLog = v; UI:RebuildRows() end)
     hideLog:SetPoint("LEFT", doable.label, "RIGHT", 16, 0)
 
-    local showIgn = MakeCheck(main, "Show ignored",
-        "Right-click a quest to ignore it (e.g. class quests you can't do).",
+    local showIgn = MakeCheck(main, L["Show ignored"],
+        L["Right-click a quest to ignore it (e.g. class quests you can't do)."],
         function() return K.db.settings.showIgnored end,
         function(v) K.db.settings.showIgnored = v; UI:RebuildRows() end)
     showIgn:SetPoint("LEFT", hideLog.label, "RIGHT", 16, 0)
+
+    -- Fit the toolbar into the window for longer languages: shrink the
+    -- search box first, then cut the filter labels proportionally.
+    do
+        local checks = { doable, hideLog, showIgn }
+        local perCheck = 16 + 20 + 4 -- gap + box + label offset
+        local labelsW = 0
+        for _, c in ipairs(checks) do labelsW = labelsW + c.label:GetStringWidth() end
+        local free = MAIN_W - 6 - #checks * perCheck - labelsW - 8
+        local searchW = math.max(110, math.min(190, free))
+        search:SetWidth(searchW)
+        local room = MAIN_W - 6 - searchW - #checks * perCheck - 8
+        if labelsW > room then
+            for _, c in ipairs(checks) do
+                FitCheckLabel(c, room * c.label:GetStringWidth() / labelsW)
+            end
+        end
+    end
+    Style.Apply("EditBox", search, { padInput = true })
 
     -- quest list
     local listPanel = CreateFrame("Frame", nil, main)
@@ -430,9 +486,10 @@ function UI:InitPartnerRow(button, data)
     button.dot:SetShown(K:IsPartnerOnline(data.key))
     local t = transfers[data.key]
     if t then
-        button.info:SetText("receiving " .. t .. " ...")
+        button.info:SetText(L["receiving %s ..."]:format(t))
     else
-        button.info:SetText(("Level %d  ·  %s%s"):format(p.lv or 0, Ago(p.ts), p.source == "import" and "  ·  import" or ""))
+        button.info:SetText(L["Level %d"]:format(p.lv or 0) .. "  ·  " .. Ago(p.ts)
+            .. (p.source == "import" and ("  ·  " .. L["import"]) or ""))
     end
 end
 
@@ -495,7 +552,7 @@ function UI:InitQuestRow(button, data)
         button.lvl:SetTextColor(0.6, 0.6, 0.6)
     end
     if e.ignored then
-        button.title:SetText(e.title .. "  (ignored)")
+        button.title:SetText(e.title .. "  " .. L["(ignored)"])
         button.title:SetTextColor(0.45, 0.45, 0.45)
     else
         button.title:SetText(e.title)
@@ -504,13 +561,13 @@ function UI:InitQuestRow(button, data)
 
     local status = ""
     if currentTab == "completed" then
-        if e.inMyLog then status = "|cffffd100in your log|r" end
+        if e.inMyLog then status = "|cffffd100" .. L["in your log"] .. "|r" end
     elseif currentTab == "log" then
         if e.status == "behind" then
-            status = "|cffff9933behind:|r " .. AheadSummary(e)
+            status = "|cffff9933" .. L["behind:"] .. "|r " .. AheadSummary(e)
         elseif e.status == "missing" then
             local summary = ObjectiveSummary(e.partnerQuest)
-            status = LOG_STATUS.missing .. (summary ~= "" and ("  |cff777777·|r  them " .. summary) or "")
+            status = LOG_STATUS.missing .. (summary ~= "" and ("  |cff777777·|r  " .. L["them: %s"]:format(summary)) or "")
         else
             status = LOG_STATUS[e.status] or ""
         end
@@ -538,7 +595,7 @@ end
 local function AddObjectives(tt, header, q, r, g, b)
     if not q then return end
     tt:AddLine(header, r, g, b)
-    if q.c == 1 then tt:AddLine("  Ready to turn in", 0.2, 1, 0.2) end
+    if q.c == 1 then tt:AddLine("  " .. L["Ready to turn in"], 0.2, 1, 0.2) end
     for _, o in ipairs(q.o or {}) do
         local done = o.f == 1
         tt:AddLine("  " .. (o.t ~= "" and o.t or (o.h .. "/" .. o.n)), done and 0.5 or 1, done and 0.5 or 1, done and 0.5 or 1)
@@ -550,21 +607,21 @@ function UI:ShowQuestTooltip(owner, data)
     local e = data.entry
     GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
     GameTooltip:SetText(e.title, 1, 0.82, 0)
-    GameTooltip:AddDoubleLine("Quest ID", e.id, 0.7, 0.7, 0.7, 1, 1, 1)
-    GameTooltip:AddDoubleLine("Zone", e.zone, 0.7, 0.7, 0.7, 1, 1, 1)
-    if e.level then GameTooltip:AddDoubleLine("Level", e.level, 0.7, 0.7, 0.7, 1, 1, 1) end
-    if e.reqLevel then GameTooltip:AddDoubleLine("Required level", e.reqLevel, 0.7, 0.7, 0.7, 1, 1, 1) end
+    GameTooltip:AddDoubleLine(L["Quest ID"], e.id, 0.7, 0.7, 0.7, 1, 1, 1)
+    GameTooltip:AddDoubleLine(L["Zone"], e.zone, 0.7, 0.7, 0.7, 1, 1, 1)
+    if e.level then GameTooltip:AddDoubleLine(L["Level"], e.level, 0.7, 0.7, 0.7, 1, 1, 1) end
+    if e.reqLevel then GameTooltip:AddDoubleLine(L["Required level"], e.reqLevel, 0.7, 0.7, 0.7, 1, 1, 1) end
     local doable = K:IsDoable(e.id)
     if doable ~= nil then
-        GameTooltip:AddDoubleLine("Available to you now", doable and "yes" or "no", 0.7, 0.7, 0.7,
+        GameTooltip:AddDoubleLine(L["Available to you now"], doable and L["yes"] or L["no"], 0.7, 0.7, 0.7,
             doable and 0.2 or 1, doable and 1 or 0.3, doable and 0.2 or 0.3)
     end
-    if e.inMyLog then GameTooltip:AddLine("This quest is in your log.", 1, 0.82, 0) end
+    if e.inMyLog then GameTooltip:AddLine(L["This quest is in your log."], 1, 0.82, 0) end
     local partnerName = K:ShortName(K.db.selected)
     if e.partnerQuest or e.myQuest then GameTooltip:AddLine(" ") end
-    AddObjectives(GameTooltip, partnerName .. "'s progress:", e.partnerQuest, 0.4, 0.8, 1)
-    AddObjectives(GameTooltip, "Your progress:", e.myQuest, 1, 0.82, 0)
-    if e.ignored then GameTooltip:AddLine("Ignored (right-click to unignore)", 0.6, 0.6, 0.6) end
+    AddObjectives(GameTooltip, L["%s's progress:"]:format(partnerName), e.partnerQuest, 0.4, 0.8, 1)
+    AddObjectives(GameTooltip, L["Your progress:"], e.myQuest, 1, 0.82, 0)
+    if e.ignored then GameTooltip:AddLine(L["Ignored (right-click to unignore)"], 0.6, 0.6, 0.6) end
     GameTooltip:Show()
 end
 
@@ -612,10 +669,11 @@ function UI:Refresh()
     local key = K.db.selected
     local p = K:GetPartner(key)
     if not p then
-        self.header:SetText("Nobody to catch up with yet")
+        self.header:SetText(L["Nobody to catch up with yet"])
         self.header:SetTextColor(1, 1, 1)
         self.classBar:SetColorTexture(Style.Accent())
-        self.sub:SetText("Join a group with your partner, or import a string they exported.")
+        self.sub:SetText(L["Join a group with your partner, or import a string they exported."])
+        self.sub2:SetText("")
         self.pill:Hide()
         self.diff = nil
     else
@@ -625,14 +683,14 @@ function UI:Refresh()
         self.diff = K:ComputeDiff(key)
         local sep = "  |cff555555·|r  "
         self.sub:SetText(table.concat({
-            ("Level %d %s"):format(p.lv or 0, p.fa or ""),
-            ("%d completed (%d also by you)"):format(self.diff.completedTotal or 0, self.diff.completedShared or 0),
-            ("%d in quest log"):format(#(p.q or {})),
-            ("updated %s via %s"):format(Ago(p.ts), p.source == "import" and "import" or "group sync"),
+            L["Level %d %s"]:format(p.lv or 0, FactionName(p.fa)),
+            L["%d completed (%d also by you)"]:format(self.diff.completedTotal or 0, self.diff.completedShared or 0),
+            L["%d in quest log"]:format(#(p.q or {})),
         }, sep))
+        self.sub2:SetText(L["updated %s via %s"]:format(Ago(p.ts), p.source == "import" and L["import"] or L["group sync"]))
         local online = K:IsPartnerOnline(key)
         self.pill.dot:SetColorTexture(online and 0.25 or 0.5, online and 0.9 or 0.5, online and 0.35 or 0.5, 1)
-        self.pill.text:SetText(online and "In your group" or "Saved data")
+        self.pill.text:SetText(online and L["In your group"] or L["Saved data"])
         self.pill:SetWidth(self.pill.text:GetStringWidth() + 30)
         self.pill:Show()
     end
@@ -676,6 +734,14 @@ function UI:RebuildRows()
         b:SetWidth(math.max(120, b:GetFontString():GetStringWidth() + 32))
         Style.Apply("SetTabSelection", b, b.tabKey == currentTab)
     end
+    -- longer languages: squeeze the tabs so the row never leaves the window
+    local tabsW = 0
+    for _, b in ipairs(self.tabButtons) do tabsW = tabsW + b:GetWidth() + 2 end
+    if tabsW > MAIN_W then
+        for _, b in ipairs(self.tabButtons) do
+            b:SetWidth(math.floor(b:GetWidth() * MAIN_W / tabsW))
+        end
+    end
 
     local rows, lastZone, headerRow = {}, nil, nil
     for _, e in ipairs(diff[currentTab]) do
@@ -692,11 +758,11 @@ function UI:RebuildRows()
     SetRows(self.questBox, rows)
 
     if not self.diff then
-        self.emptyQuests:SetText("No partner selected")
-        self.emptyQuestsSub:SetText("Group up with your partner or import their string to get started.")
+        self.emptyQuests:SetText(L["No partner selected"])
+        self.emptyQuestsSub:SetText(L["Group up with your partner or import their string to get started."])
     elseif #rows == 0 then
-        self.emptyQuests:SetText("Nothing here - you're in sync!")
-        self.emptyQuestsSub:SetText(query ~= "" and "No quest matches your search." or "")
+        self.emptyQuests:SetText(L["Nothing here - you're in sync!"])
+        self.emptyQuestsSub:SetText(query ~= "" and L["No quest matches your search."] or "")
     else
         self.emptyQuests:SetText("")
         self.emptyQuestsSub:SetText("")
@@ -704,7 +770,7 @@ function UI:RebuildRows()
 end
 
 StaticPopupDialogs["KETCHUP_REMOVE_PARTNER"] = {
-    text = "Remove the saved quest progress of %s?",
+    text = L["Remove the saved quest progress of %s?"],
     button1 = YES,
     button2 = NO,
     OnAccept = function(_, key) K:RemovePartner(key) end,
@@ -733,7 +799,7 @@ function UI:CreateStringDialog()
     tinsert(UISpecialFrames, "KetchupStringDialog")
     Style.Apply("Shell", d, { bottomBar = 44 })
 
-    local icon = d:CreateTexture(nil, "ARTWORK")
+    local icon = Canvas(d):CreateTexture(nil, "ARTWORK")
     icon:SetSize(16, 16)
     icon:SetPoint("TOPLEFT", 8, -5)
     icon:SetTexture(ICON)
@@ -786,7 +852,7 @@ function UI:CreateStringDialog()
     scroll:SetScript("OnMouseDown", function() edit:SetFocus() end)
     d.edit = edit
 
-    local action = MakeButton(d, "Import", 130, 26, function()
+    local action = MakeButton(d, L["Import"], 130, 26, function()
         if d.mode == "import" then
             UI:DoImport(edit:GetText())
         else
@@ -797,7 +863,7 @@ function UI:CreateStringDialog()
     action:SetPoint("BOTTOMRIGHT", -12, 9)
     d.action = action
 
-    local closeBtn = MakeButton(d, CLOSE or "Close", 100, 26, function() d:Hide() end)
+    local closeBtn = MakeButton(d, CLOSE or L["Close"], 100, 26, function() d:Hide() end)
     closeBtn:SetPoint("RIGHT", action, "LEFT", -8, 0)
 
     self.stringDialog = d
@@ -809,16 +875,17 @@ function UI:ShowExport()
     local snapshot = K:BuildSnapshot()
     local text, err = S.ToExportString(snapshot)
     if not text then
-        K:Print("Export failed: " .. tostring(err))
+        K:Print(L["Export failed: %s"]:format(tostring(err)))
         return
     end
     d.mode = "export"
     d.exportText = text
-    d.titleText:SetText("Export my progress")
-    d.info:SetText(("Press |cffffd100Ctrl+C|r to copy and send it to your partner over any messenger. "
-        .. "They paste it via |cffffd100Import string|r.\n|cff888888%d completed quests  ·  %d quests in log  ·  %d characters|r"):format(
-        #snapshot.c, #snapshot.q, #text))
-    d.action:SetText("Select all")
+    d.titleText:SetText(L["Export my progress"])
+    d.info:SetText(L["Press %s to copy and send it to your partner over any messenger. They paste it via %s."]:format(
+            "|cffffd100Ctrl+C|r", "|cffffd100" .. L["Import string"] .. "|r")
+        .. "\n|cff888888" .. L["%d completed quests  ·  %d quests in log  ·  %d characters"]:format(
+            #snapshot.c, #snapshot.q, #text) .. "|r")
+    d.action:SetText(L["Select all"])
     d.edit:SetText(text)
     d:Show()
     d.edit:SetFocus()
@@ -829,10 +896,11 @@ function UI:ShowImport()
     local d = self:CreateStringDialog()
     d.mode = "import"
     d.exportText = nil
-    d.titleText:SetText("Import partner progress")
-    d.info:SetText("Paste the string your partner exported (|cffffd100Ctrl+V|r), then click |cffffd100Import|r.\n"
-        .. "|cff888888Line breaks or spaces added by a messenger are fine.|r")
-    d.action:SetText("Import")
+    d.titleText:SetText(L["Import partner progress"])
+    d.info:SetText(L["Paste the string your partner exported (%s), then click %s."]:format(
+            "|cffffd100Ctrl+V|r", "|cffffd100" .. L["Import"] .. "|r")
+        .. "\n|cff888888" .. L["Line breaks or spaces added by a messenger are fine."] .. "|r")
+    d.action:SetText(L["Import"])
     d.edit:SetText("")
     d:Show()
     d.edit:SetFocus()
@@ -841,16 +909,16 @@ end
 function UI:DoImport(text)
     local snapshot, err = S.FromExportString(text)
     if not snapshot then
-        K:Print("|cffff5555Import failed:|r " .. tostring(err))
+        K:Print("|cffff5555" .. L["Import failed:"] .. "|r " .. tostring(err))
         return
     end
     local key, why = K:StorePartnerSnapshot(snapshot, "import")
     if not key then
-        K:Print("|cffff5555Import failed:|r " .. tostring(why))
+        K:Print("|cffff5555" .. L["Import failed:"] .. "|r " .. tostring(why))
         return
     end
     K.db.selected = key
-    K:Print(("Imported progress of %s (%d completed quests)."):format(K:ShortName(key), #(K.db.partners[key].c or {})))
+    K:Print(L["Imported progress of %s (%d completed quests)."]:format(K:ShortName(key), #(K.db.partners[key].c or {})))
     self.stringDialog:Hide()
     self:Open()
     self:Refresh()
@@ -960,7 +1028,7 @@ function UI:CreateQuestLogButton()
     b:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:SetText("Ketchup", 1, 1, 1)
-        GameTooltip:AddLine("Compare quest progress with your partner.", nil, nil, nil, true)
+        GameTooltip:AddLine(L["Compare quest progress with your partner."], nil, nil, nil, true)
         GameTooltip:Show()
     end)
     b:SetScript("OnLeave", GameTooltip_Hide)
@@ -1048,33 +1116,33 @@ local function AddSyncLines(questID, asSection)
         GameTooltip:SetText("Ketchup", 1, 1, 1)
     end
     if status == "catchup" then
-        GameTooltip:AddLine(who .. " already turned this in.", 1, 0.65, 0.15, true)
-        GameTooltip:AddLine("Do it to catch up.", 1, 1, 1, true)
+        GameTooltip:AddLine(L["%s already turned this in."]:format(who), 1, 0.65, 0.15, true)
+        GameTooltip:AddLine(L["Do it to catch up."], 1, 1, 1, true)
     elseif status == "together" then
-        GameTooltip:AddLine(who .. " has this quest too.", 0.2, 1, 0.2, true)
-        GameTooltip:AddLine("Do it together.", 1, 1, 1, true)
+        GameTooltip:AddLine(L["%s has this quest too."]:format(who), 0.2, 1, 0.2, true)
+        GameTooltip:AddLine(L["Do it together."], 1, 1, 1, true)
     elseif status == "ahead" then
-        GameTooltip:AddLine(who .. " has this quest too, but you're further along.", 0.2, 1, 0.2, true)
-        GameTooltip:AddLine("Wait for them to catch up.", 1, 1, 1, true)
+        GameTooltip:AddLine(L["%s has this quest too, but you're further along."]:format(who), 0.2, 1, 0.2, true)
+        GameTooltip:AddLine(L["Wait for them to catch up."], 1, 1, 1, true)
     else
-        GameTooltip:AddLine(who .. " doesn't have this quest.", 1, 0.3, 0.3, true)
-        GameTooltip:AddLine("Doing it puts you ahead of them.", 1, 1, 1, true)
+        GameTooltip:AddLine(L["%s doesn't have this quest."]:format(who), 1, 0.3, 0.3, true)
+        GameTooltip:AddLine(L["Doing it puts you ahead of them."], 1, 1, 1, true)
     end
     if pq then
         GameTooltip:AddLine(" ")
-        GameTooltip:AddLine(who .. "'s progress:", 0.4, 0.8, 1)
-        if pq.c == 1 then GameTooltip:AddLine("  Ready to turn in", 0.2, 1, 0.2) end
+        GameTooltip:AddLine(L["%s's progress:"]:format(who), 0.4, 0.8, 1)
+        if pq.c == 1 then GameTooltip:AddLine("  " .. L["Ready to turn in"], 0.2, 1, 0.2) end
         for j, o in ipairs(pq.o or {}) do
             local mo = mine and mine.o[j]
             local text = o.t ~= "" and o.t or (o.h .. "/" .. o.n)
             if mo then
-                GameTooltip:AddDoubleLine("  " .. text, ("you %d/%d"):format(mo.h, mo.n), 1, 1, 1, 1, 0.82, 0)
+                GameTooltip:AddDoubleLine("  " .. text, L["you %d/%d"]:format(mo.h, mo.n), 1, 1, 1, 1, 0.82, 0)
             else
                 GameTooltip:AddLine("  " .. text, 1, 1, 1)
             end
         end
     end
-    GameTooltip:AddLine(("Their data is from %s."):format(p and Ago(p.ts) or "?"), 0.6, 0.6, 0.6)
+    GameTooltip:AddLine(L["Their data is from %s."]:format(p and Ago(p.ts) or "?"), 0.6, 0.6, 0.6)
     return true
 end
 
@@ -1319,10 +1387,10 @@ function Ketchup_OnAddonCompartmentEnter(_, owner)
     GameTooltip:SetText("Ketchup", 1, 1, 1)
     local n = 0
     for _ in pairs(K.db and K:VisiblePartners() or {}) do n = n + 1 end
-    GameTooltip:AddLine(("%d partner(s) saved"):format(n), 0.8, 0.8, 0.8)
-    GameTooltip:AddLine("|cffffd100Left-click|r open window", 1, 1, 1)
-    GameTooltip:AddLine("|cffffd100Right-click|r sync with group", 1, 1, 1)
-    GameTooltip:AddLine("|cffffd100Drag|r move button", 1, 1, 1)
+    GameTooltip:AddLine(L["%d partner(s) saved"]:format(n), 0.8, 0.8, 0.8)
+    GameTooltip:AddLine("|cffffd100" .. L["Left-click"] .. "|r " .. L["open window"], 1, 1, 1)
+    GameTooltip:AddLine("|cffffd100" .. L["Right-click"] .. "|r " .. L["sync with group"], 1, 1, 1)
+    GameTooltip:AddLine("|cffffd100" .. L["Drag"] .. "|r " .. L["move button"], 1, 1, 1)
     GameTooltip:Show()
 end
 

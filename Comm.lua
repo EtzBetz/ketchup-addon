@@ -6,6 +6,7 @@
 local _, ns = ...
 local K = ns.K
 local S = ns.Serialize
+local L = ns.L
 
 local Comm = {}
 K.Comm = Comm
@@ -90,7 +91,7 @@ function Comm:SendSnapshot(snapshot)
     if not channel then return false end
     local encoded, err = S.Encode(snapshot)
     if not encoded then
-        K:Print("Could not encode progress: " .. tostring(err))
+        K:Print(L["Could not encode progress: %s"]:format(tostring(err)))
         return false
     end
     -- a newer snapshot supersedes anything still waiting in the queue
@@ -108,13 +109,13 @@ end
 function Comm:RequestFromGroup()
     local channel = K:GroupChannel()
     if not channel then
-        K:Print("You are not in a group. Ask your partner for an export string instead.")
+        K:Print(L["You are not in a group. Ask your partner for an export string instead."])
         return
     end
     Enqueue("R", channel, nil, "request")
     -- send mine along so both sides end up in sync
     K:ScheduleShare(1, true)
-    K:Print("Requested quest progress from your group.")
+    K:Print(L["Requested quest progress from your group."])
 end
 
 function Comm:OnMessage(text, channel, sender)
@@ -151,16 +152,16 @@ function Comm:OnMessage(text, channel, sender)
             incoming[key] = nil
             local snapshot, err = S.Decode(table.concat(t.parts, "", 1, t.n))
             if not snapshot then
-                K:Print("Received broken data from " .. K:ShortName(key) .. ": " .. tostring(err))
+                K:Print(L["Received broken data from %s: %s"]:format(K:ShortName(key), tostring(err)))
                 return
             end
             local prev = K.db.partners[key]
             local prevCount = prev and prev.c and #prev.c
             local stored, why = K:StorePartnerSnapshot(snapshot, "group", key)
             if not stored and why then
-                K:Print("Ignored data from " .. K:ShortName(key) .. ": " .. why)
+                K:Print(L["Ignored data from %s: %s"]:format(K:ShortName(key), why))
             elseif stored and prevCount ~= #(K.db.partners[key].c or {}) then
-                K:Print(("Saved quest progress of %s (%d completed quests). /ketchup to compare.")
+                K:Print(L["Saved quest progress of %s (%d completed quests). /ketchup to compare."]
                     :format(K:ShortName(key), #(K.db.partners[key].c or {})))
             end
             if K.UI then K.UI:SetTransferProgress(key, nil) end
