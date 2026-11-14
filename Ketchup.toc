@@ -1,5 +1,5 @@
 ## Interface: 16001
-## Title: Ketchup
+## Title: Ketchup (fast)
 ## Notes: Share quest progress with a friend and catch up on what they did while you were offline. Syncs in group or via an import string.
 ## Author: EtzBetz
 ## Version: 1.0.0

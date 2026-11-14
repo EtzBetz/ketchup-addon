@@ -7,6 +7,7 @@ ns.K = K
 _G.Ketchup = K
 
 K.ADDON = ADDON
+K.NAME = "Ketchup (fast)" -- displayed name (folder, saved data and sync channel stay "Ketchup")
 K.PROTOCOL = 1
 K.version = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON, "Version"))
     or (GetAddOnMetadata and GetAddOnMetadata(ADDON, "Version")) or "?"
@@ -39,7 +40,7 @@ local function ApplyDefaults(dst, src)
 end
 
 function K:Print(...)
-    print("|cffe8463aKetchup|r:", ...)
+    print("|cffe8463a" .. K.NAME .. "|r:", ...)
 end
 
 ------------------------------------------------------------------------
@@ -216,7 +217,7 @@ local function SanitizeSnapshot(s)
         return nil, L["malformed snapshot"]
     end
     if tonumber(s.v) ~= K.PROTOCOL then
-        return nil, L["incompatible Ketchup version (protocol %s)"]:format(tostring(s.v))
+        return nil, L["incompatible Ketchup (fast) version (protocol %s)"]:format(tostring(s.v))
     end
     local out = {
         v = K.PROTOCOL,
@@ -548,7 +549,7 @@ function K:WarnStop(questID, title, partnerKey, pq, reason)
     end
     local msg = L["%s has \"%s\" active%s - stop and do it together!"]:format(who, title, detail)
     if RaidNotice_AddMessage and RaidWarningFrame then
-        RaidNotice_AddMessage(RaidWarningFrame, "Ketchup: " .. msg, ChatTypeInfo and ChatTypeInfo.RAID_WARNING or { r = 1, g = 0.3, b = 0.1 })
+        RaidNotice_AddMessage(RaidWarningFrame, K.NAME .. ": " .. msg, ChatTypeInfo and ChatTypeInfo.RAID_WARNING or { r = 1, g = 0.3, b = 0.1 })
     end
     PlaySound(SOUNDKIT and SOUNDKIT.RAID_WARNING or 8959, "Master")
     self:Print("|cffff6633" .. msg .. "|r" .. (reason and (" |cff999999(" .. reason:format(who) .. ")|r") or ""))

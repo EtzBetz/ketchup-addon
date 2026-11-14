@@ -218,7 +218,7 @@ function UI:Create()
 
     local title = Style.Text(f, 13)
     title:SetPoint("LEFT", icon, "RIGHT", 6, 0)
-    title:SetText("Ketchup")
+    title:SetText(K.NAME)
 
     local subtitle = Style.Text(f, 11, 0.5, 0.5, 0.5)
     subtitle:SetPoint("LEFT", title, "RIGHT", 8, -1)
@@ -262,7 +262,7 @@ function UI:Create()
     emptyPartners:SetPoint("TOPLEFT", partnerBox, "TOPLEFT", 6, -8)
     emptyPartners:SetPoint("RIGHT", partnerBox, "RIGHT", -6, 0)
     emptyPartners:SetWordWrap(true)
-    emptyPartners:SetText(L["No partner data yet.\n\nGroup up with your friend (both need Ketchup), or import the string they exported."])
+    emptyPartners:SetText(L["No partner data yet.\n\nGroup up with your friend or import the string they exported. You both need Ketchup (fast)."])
     self.emptyPartners = emptyPartners
 
     local actionsLabel = SectionLabel(side, L["ACTIONS"])
@@ -277,7 +277,7 @@ function UI:Create()
         return b
     end
     addButton(L["Sync with group"], function() K.Comm:RequestFromGroup() end,
-        L["Ask every group member running Ketchup for their current progress, and send yours."])
+        L["Ask every group member running Ketchup (fast) for their current progress, and send yours."])
     addButton(L["Export my progress"], function() UI:ShowExport() end,
         L["Create a string with your quest progress that you can paste to your partner over any messenger."])
     addButton(L["Import string"], function() UI:ShowImport() end,
@@ -293,7 +293,7 @@ function UI:Create()
     settingsLabel:SetPoint("TOPLEFT", 12, y - 10)
 
     local auto = MakeCheck(side, L["Auto-share while grouped"],
-        L["Automatically send your progress to group members running Ketchup whenever your quests change."],
+        L["Automatically send your progress to group members running Ketchup (fast) whenever your quests change."],
         function() return K.db.settings.autoShare end,
         function(v) K.db.settings.autoShare = v; if v then K:ScheduleShare(1, true) end end)
     auto:SetPoint("TOPLEFT", 10, y - 26)
@@ -996,9 +996,12 @@ function UI:CreateQuestLogButton()
 
     local b = UI.CreateDetached("Button", "KetchupQuestLogButton", parent, "UIPanelButtonTemplate")
     b:SetSize(80, 20)
-    b:SetText("Ketchup")
+    b:SetText(K.NAME)
     local fs = b:GetFontString()
-    if fs then Style.SetFont(fs, 12) end
+    if fs then
+        Style.SetFont(fs, 12)
+        b:SetWidth(math.max(80, math.ceil(fs:GetStringWidth()) + 24))
+    end
     Style.Apply("Button", b)
     Style.Apply("StateButtonLabel", b)
     self.questLogButton = b
@@ -1029,7 +1032,7 @@ function UI:CreateQuestLogButton()
     b:SetScript("OnClick", function() UI:Toggle() end)
     b:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText("Ketchup", 1, 1, 1)
+        GameTooltip:SetText(K.NAME, 1, 1, 1)
         GameTooltip:AddLine(L["Compare quest progress with your partner."], nil, nil, nil, true)
         GameTooltip:Show()
     end)
@@ -1113,9 +1116,9 @@ local function AddSyncLines(questID, asSection)
     local p = K:GetPartner(key)
     if asSection then
         GameTooltip:AddLine(" ")
-        GameTooltip:AddLine("Ketchup", 1, 0.55, 0.3)
+        GameTooltip:AddLine(K.NAME, 1, 0.55, 0.3)
     else
-        GameTooltip:SetText("Ketchup", 1, 1, 1)
+        GameTooltip:SetText(K.NAME, 1, 1, 1)
     end
     if status == "catchup" then
         if pq then -- still in their log, every objective done
@@ -1390,7 +1393,7 @@ end
 
 function Ketchup_OnAddonCompartmentEnter(_, owner)
     GameTooltip:SetOwner(owner or UIParent, "ANCHOR_LEFT")
-    GameTooltip:SetText("Ketchup", 1, 1, 1)
+    GameTooltip:SetText(K.NAME, 1, 1, 1)
     local n = 0
     for _ in pairs(K.db and K:VisiblePartners() or {}) do n = n + 1 end
     GameTooltip:AddLine(L["%d partner(s) saved"]:format(n), 0.8, 0.8, 0.8)

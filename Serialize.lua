@@ -50,6 +50,6 @@ function S.FromExportString(text)
     -- Messengers like to wrap lines or add spaces: strip all whitespace.
     text = text:gsub("%s+", "")
     local start = text:find(S.EXPORT_PREFIX, 1, true)
-    if not start then return nil, L["this is not a Ketchup string (missing %s)"]:format(S.EXPORT_PREFIX) end
+    if not start then return nil, L["this is not a Ketchup (fast) string (missing %s)"]:format(S.EXPORT_PREFIX) end
     return S.Decode(text:sub(start + #S.EXPORT_PREFIX))
 end
