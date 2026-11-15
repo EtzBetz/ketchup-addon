@@ -1107,19 +1107,59 @@ local function CatchupMarkup(size)
         CATCHUP_RGB[1], CATCHUP_RGB[2], CATCHUP_RGB[3])
 end
 
--- Adds the Ketchup sync lines for a quest to GameTooltip. Returns false if
--- there is nothing to say (no partner selected).
+local MAX_GROUP_MEMBERS = 8
+
+-- Progress of the other group members running Ketchup on this quest.
+local function AddGroupLines(questID, members)
+    GameTooltip:AddLine(L["Group members:"], 0.4, 0.8, 1)
+    for i, m in ipairs(members) do
+        if i > MAX_GROUP_MEMBERS then
+            GameTooltip:AddLine("  " .. L["+%d more"]:format(#members - MAX_GROUP_MEMBERS), 0.6, 0.6, 0.6)
+            break
+        end
+        local name = "  " .. K:ClassColored(m.p.n ~= "" and m.p.n or K:ShortName(m.key), m.p.cl)
+        local state, pq = K:PartnerQuestState(m.key, questID)
+        if state == "done" then
+            GameTooltip:AddDoubleLine(name, L["turned it in"], 1, 1, 1, 1, 0.65, 0.15)
+        elseif state == "none" then
+            GameTooltip:AddDoubleLine(name, L["doesn't have it"], 1, 1, 1, 0.6, 0.6, 0.6)
+        elseif pq.c == 1 then
+            GameTooltip:AddDoubleLine(name, L["ready to turn in"], 1, 1, 1, 0.2, 1, 0.2)
+        else
+            GameTooltip:AddDoubleLine(name, L["in progress"], 1, 1, 1, 1, 0.82, 0)
+            for _, o in ipairs(pq.o or {}) do
+                local done = o.f == 1
+                local text = o.t ~= "" and o.t or (o.h .. "/" .. o.n)
+                GameTooltip:AddLine("      " .. text, done and 0.5 or 0.9, done and 0.5 or 0.9, done and 0.5 or 0.9)
+            end
+        end
+    end
+end
+
+-- Adds the Ketchup sync lines for a quest to GameTooltip: the selected
+-- partner's sync status, then everyone's progress. While the partner is in
+-- my group they head the group list; otherwise their saved progress gets its
+-- own block. Returns false if there is nothing to say.
 local function AddSyncLines(questID, asSection)
     local status, pq, mine, key = K:GetSyncStatus(questID)
-    if not status then return false end
-    local who = K:ShortName(key)
-    local p = K:GetPartner(key)
+    local members = K:GroupPartners(key)
+    local partnerUnit = status and K:FindGroupUnit(key)
+    if partnerUnit then
+        table.insert(members, 1, { key = key, unit = partnerUnit, p = K:GetPartner(key) })
+    end
+    if not status and #members == 0 then return false end
     if asSection then
         GameTooltip:AddLine(" ")
         GameTooltip:AddLine(K.NAME, 1, 0.55, 0.3)
     else
         GameTooltip:SetText(K.NAME, 1, 1, 1)
     end
+    if not status then
+        AddGroupLines(questID, members)
+        return true
+    end
+    local who = K:ShortName(key)
+    local p = K:GetPartner(key)
     if status == "catchup" then
         if pq then -- still in their log, every objective done
             GameTooltip:AddLine(L["%s has completed all objectives but hasn't turned it in yet."]:format(who), 1, 0.65, 0.15, true)
@@ -1137,6 +1177,11 @@ local function AddSyncLines(questID, asSection)
         GameTooltip:AddLine(L["%s doesn't have this quest."]:format(who), 1, 0.3, 0.3, true)
         GameTooltip:AddLine(L["Doing it puts you ahead of them."], 1, 1, 1, true)
     end
+    if partnerUnit then
+        GameTooltip:AddLine(" ")
+        AddGroupLines(questID, members)
+        return true
+    end
     if pq then
         GameTooltip:AddLine(" ")
         GameTooltip:AddLine(L["%s's progress:"]:format(who), 0.4, 0.8, 1)
@@ -1152,6 +1197,10 @@ local function AddSyncLines(questID, asSection)
         end
     end
     GameTooltip:AddLine(L["Their data is from %s."]:format(p and Ago(p.ts) or "?"), 0.6, 0.6, 0.6)
+    if #members > 0 then
+        GameTooltip:AddLine(" ")
+        AddGroupLines(questID, members)
+    end
     return true
 end
 

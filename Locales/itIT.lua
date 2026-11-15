@@ -152,6 +152,13 @@ ns.RegisterLocale("itIT", {
     ["Doing it puts you ahead of them."] = "Completandola andrai avanti rispetto al tuo compagno.",
     ["Their data is from %s."] = "Dati del compagno: %s.",
 
+    -- quest log tooltip: group members
+    ["Group members:"] = "Membri del gruppo:",
+    ["+%d more"] = "+%d altri",
+    ["turned it in"] = "consegnata",
+    ["doesn't have it"] = "non ce l'ha",
+    ["in progress"] = "in corso",
+
     -- minimap / addon compartment
     ["%d partner(s) saved"] = "%d compagni salvati",
     ["Left-click"] = "Clic sinistro",

@@ -152,6 +152,13 @@ ns.RegisterLocale("zhTW", {
     ["Doing it puts you ahead of them."] = "完成它會讓你領先夥伴。",
     ["Their data is from %s."] = "夥伴資料：%s。",
 
+    -- quest log tooltip: group members
+    ["Group members:"] = "隊伍成員：",
+    ["+%d more"] = "還有 %d 人",
+    ["turned it in"] = "已交任務",
+    ["doesn't have it"] = "沒有此任務",
+    ["in progress"] = "進行中",
+
     -- minimap / addon compartment
     ["%d partner(s) saved"] = "已儲存 %d 位夥伴",
     ["Left-click"] = "左鍵",

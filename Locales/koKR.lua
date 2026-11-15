@@ -152,6 +152,13 @@ ns.RegisterLocale("koKR", {
     ["Doing it puts you ahead of them."] = "수행하면 파트너보다 앞서게 됩니다.",
     ["Their data is from %s."] = "파트너 데이터: %s.",
 
+    -- quest log tooltip: group members
+    ["Group members:"] = "파티원:",
+    ["+%d more"] = "외 %d명",
+    ["turned it in"] = "완료함",
+    ["doesn't have it"] = "퀘스트 없음",
+    ["in progress"] = "진행 중",
+
     -- minimap / addon compartment
     ["%d partner(s) saved"] = "저장된 파트너 %d명",
     ["Left-click"] = "왼쪽 클릭",

@@ -706,6 +706,38 @@ function K:IsPartnerOnline(key)
     return self.online[key] and self:FindGroupUnit(key) ~= nil
 end
 
+-- Group members whose Ketchup data I have, as { key, unit, p }, in group
+-- order. One entry per member (older saves can hold the same character under
+-- two keys: the newest wins). excludeKey (the selected partner) is left out.
+function K:GroupPartners(excludeKey)
+    local list = {}
+    if not IsInGroup() then return list end
+    local skip = excludeKey and self:FindGroupUnit(excludeKey)
+    local byUnit = {}
+    for key, p in pairs(self:VisiblePartners()) do
+        local unit = self:FindGroupUnit(key)
+        if unit and unit ~= skip and (not byUnit[unit] or (p.ts or 0) > (byUnit[unit].p.ts or 0)) then
+            byUnit[unit] = { key = key, unit = unit, p = p }
+        end
+    end
+    for _, e in pairs(byUnit) do list[#list + 1] = e end
+    table.sort(list, function(a, b)
+        return (tonumber(a.unit:match("%d+")) or 0) < (tonumber(b.unit:match("%d+")) or 0)
+    end)
+    return list
+end
+
+-- One partner's state for a quest: "done" (turned in), "active" plus their
+-- quest entry, or "none".
+function K:PartnerQuestState(key, questID)
+    local sets = self:GetPartnerSets(key)
+    if not sets then return "none" end
+    if sets.completed[questID] then return "done" end
+    local pq = sets.log[questID]
+    if pq then return "active", pq end
+    return "none"
+end
+
 ------------------------------------------------------------------------
 -- Auto-sharing
 ------------------------------------------------------------------------

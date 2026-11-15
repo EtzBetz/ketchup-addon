@@ -152,6 +152,13 @@ ns.RegisterLocale("ruRU", {
     ["Doing it puts you ahead of them."] = "Выполнив его, вы обгоните напарника.",
     ["Their data is from %s."] = "Данные напарника: %s.",
 
+    -- quest log tooltip: group members
+    ["Group members:"] = "Участники группы:",
+    ["+%d more"] = "и ещё %d",
+    ["turned it in"] = "сдано",
+    ["doesn't have it"] = "нет задания",
+    ["in progress"] = "в процессе",
+
     -- minimap / addon compartment
     ["%d partner(s) saved"] = "Сохранено напарников: %d",
     ["Left-click"] = "ЛКМ",
