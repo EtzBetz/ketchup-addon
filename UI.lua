@@ -1161,6 +1161,44 @@ local function AddGroupLines(rows)
     end
 end
 
+-- Same icons as the quest log: ">>" where the partner turned it in or has
+-- every objective done, green check where they have it active.
+local CHAIN_TOGETHER = "|T" .. MARKERS.together.tex .. ":12|t"
+local MAX_CHAIN_ROWS = 10
+
+-- The partner's way through the quest chain past this quest (Questie data):
+-- my quest, the follow-ups they turned in, the one they're on now.
+local function AddChainLines(questID, key, who)
+    local chain = K:PartnerChain(questID, key)
+    if not chain then return end
+    local sets = K:GetPartnerSets(key)
+    GameTooltip:AddLine(" ")
+    GameTooltip:AddLine(L["Quest chain of %s:"]:format(who), 0.4, 0.8, 1)
+    -- long chains: first quest, "+N more", then the last rows
+    local hiddenFrom, hiddenTo = 0, -1
+    if #chain > MAX_CHAIN_ROWS then
+        hiddenFrom, hiddenTo = 2, #chain - (MAX_CHAIN_ROWS - 2)
+    end
+    for i, id in ipairs(chain) do
+        if i == hiddenFrom then
+            GameTooltip:AddLine("      " .. L["+%d more"]:format(hiddenTo - hiddenFrom + 1), 0.6, 0.6, 0.6)
+        elseif i < hiddenFrom or i > hiddenTo then
+            local pq = sets.log[id]
+            local meta = K:GetQuestMeta(id, pq and pq.t, pq and pq.l)
+            local title = (meta.level and meta.level > 0) and ("[" .. meta.level .. "] " .. meta.title) or meta.title
+            if i == 1 then
+                GameTooltip:AddDoubleLine("  " .. CatchupMarkup(12) .. " " .. title, L["you're here"], 1, 1, 1, 1, 0.65, 0.15)
+            elseif sets.completed[id] then
+                GameTooltip:AddLine("  " .. CatchupMarkup(12) .. " " .. title, 0.75, 0.75, 0.75)
+            elseif pq and pq.c == 1 then
+                GameTooltip:AddDoubleLine("  " .. CatchupMarkup(12) .. " " .. title, L["ready to turn in"], 1, 1, 1, 0.2, 1, 0.2)
+            else
+                GameTooltip:AddDoubleLine("  " .. CHAIN_TOGETHER .. " " .. title, L["in progress"], 1, 1, 1, 1, 0.82, 0)
+            end
+        end
+    end
+end
+
 -- Adds the Ketchup sync lines for a quest to GameTooltip: the selected
 -- partner's sync status, then everyone's progress. While the partner is in
 -- my group they head the group list; otherwise their saved progress gets its
@@ -1203,6 +1241,7 @@ local function AddSyncLines(questID, asSection)
         GameTooltip:AddLine(L["%s doesn't have this quest."]:format(who), 1, 0.3, 0.3, true)
         GameTooltip:AddLine(L["Doing it puts you ahead of them."], 1, 1, 1, true)
     end
+    if status == "catchup" and not pq then AddChainLines(questID, key, who) end
     if partnerUnit then
         GameTooltip:AddLine(" ")
         AddGroupLines(rows)

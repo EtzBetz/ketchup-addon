@@ -808,6 +808,104 @@ function K:OtherGroupProgress(questID, skipUnits)
 end
 
 ------------------------------------------------------------------------
+-- Quest chains (Questie): how far past one of my quests the partner is
+------------------------------------------------------------------------
+local MAX_CHAIN = 40
+
+local function QueryQuest(db, id, field)
+    local ok, value = pcall(db.QueryQuestSingle, id, field)
+    if ok then return value end
+end
+
+-- [quest] = { follow-ups } among the partner's turned-in and active quests,
+-- from Questie's prerequisites. Catches follow-ups that Questie's
+-- nextQuestInChain doesn't name. Cached with the partner's data.
+local function PartnerFollowUps(sets, db)
+    if sets.follow then return sets.follow end
+    local follow = {}
+    local function index(id)
+        for _, field in ipairs({ "preQuestSingle", "preQuestGroup" }) do
+            local pres = QueryQuest(db, id, field)
+            if type(pres) == "table" then
+                for _, pre in ipairs(pres) do
+                    pre = math.abs(tonumber(pre) or 0) -- negative = "skip exclusiveTo check"
+                    if pre > 0 and pre ~= id then
+                        follow[pre] = follow[pre] or {}
+                        table.insert(follow[pre], id)
+                    end
+                end
+            end
+        end
+    end
+    for id in pairs(sets.completed) do index(id) end
+    for id in pairs(sets.log) do index(id) end
+    sets.follow = follow
+    return follow
+end
+
+-- The partner's way through a quest chain past one of my quests, when they
+-- turned that quest in: { questID, follow-up, ..., last }. Everything is
+-- turned in by them except possibly the last, which can be active for them.
+-- Where the chain branches, the branch leading to a quest they're on now
+-- wins, else the longest. nil without Questie or when they're not past it.
+function K:PartnerChain(questID, key)
+    local sets = self:GetPartnerSets(key)
+    if not sets or not sets.completed[questID] then return nil end
+    sets.chains = sets.chains or {}
+    if sets.chains[questID] ~= nil then return sets.chains[questID] or nil end
+    if not self:HasQuestie() then return nil end -- not cached: Questie may still be loading
+    local db = self:GetQuestieDB()
+    if not db.QueryQuestSingle then return nil end
+    local follow = PartnerFollowUps(sets, db)
+
+    local function candidates(cur)
+        local list, seen = {}, {}
+        local nextID = tonumber(QueryQuest(db, cur, "nextQuestInChain"))
+        if nextID and nextID > 0 then list[1], seen[nextID] = nextID, true end
+        for _, id in ipairs(follow[cur] or {}) do
+            if not seen[id] then list[#list + 1], seen[id] = id, true end
+        end
+        return list
+    end
+
+    -- best path after cur: list of quest IDs and a score (+1 per quest,
+    -- +1000 when it ends at a quest they're on now)
+    local onPath, memo = { [questID] = true }, {}
+    local function walk(cur, depth)
+        if memo[cur] then return memo[cur][1], memo[cur][2] end
+        local best, bestScore = {}, 0
+        if depth < MAX_CHAIN then
+            for _, id in ipairs(candidates(cur)) do
+                local path, score
+                if onPath[id] then
+                    -- cycle in the data: ignore
+                elseif sets.completed[id] then
+                    onPath[id] = true
+                    local rest, restScore = walk(id, depth + 1)
+                    onPath[id] = nil
+                    path, score = { id }, restScore + 1
+                    for _, r in ipairs(rest) do path[#path + 1] = r end
+                elseif sets.log[id] then
+                    path, score = { id }, 1000
+                end
+                if path and score > bestScore then best, bestScore = path, score end
+            end
+        end
+        memo[cur] = { best, bestScore }
+        return best, bestScore
+    end
+
+    local rest = walk(questID, 1)
+    local chain = false
+    if #rest > 0 then
+        chain = { questID }
+        for _, id in ipairs(rest) do chain[#chain + 1] = id end
+    end
+    sets.chains[questID] = chain
+    return chain or nil
+end
+
+------------------------------------------------------------------------
 -- Auto-sharing
 ------------------------------------------------------------------------
 K.lastSentSig = nil

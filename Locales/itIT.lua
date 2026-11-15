@@ -159,6 +159,8 @@ ns.RegisterLocale("itIT", {
     ["doesn't have it"] = "non ce l'ha",
     ["in progress"] = "in corso",
     ["has the quest"] = "ha la missione",
+    ["Quest chain of %s:"] = "Catena di missioni di %s:",
+    ["you're here"] = "sei qui",
 
     -- minimap / addon compartment
     ["%d partner(s) saved"] = "%d compagni salvati",

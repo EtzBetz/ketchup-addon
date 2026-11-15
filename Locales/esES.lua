@@ -160,6 +160,8 @@ ns.RegisterLocale("esES esMX", {
     ["doesn't have it"] = "no la tiene",
     ["in progress"] = "en curso",
     ["has the quest"] = "tiene la misión",
+    ["Quest chain of %s:"] = "Cadena de misiones de %s:",
+    ["you're here"] = "estás aquí",
 
     -- minimap / addon compartment
     ["%d partner(s) saved"] = "%d compañero(s) guardado(s)",

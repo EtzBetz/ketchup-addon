@@ -159,6 +159,8 @@ ns.RegisterLocale("deDE", {
     ["doesn't have it"] = "hat sie nicht",
     ["in progress"] = "in Arbeit",
     ["has the quest"] = "hat die Quest",
+    ["Quest chain of %s:"] = "Questreihe von %s:",
+    ["you're here"] = "du bist hier",
 
     -- minimap / addon compartment
     ["%d partner(s) saved"] = "%d Partner gespeichert",

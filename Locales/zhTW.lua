@@ -159,6 +159,8 @@ ns.RegisterLocale("zhTW", {
     ["doesn't have it"] = "沒有此任務",
     ["in progress"] = "進行中",
     ["has the quest"] = "有此任務",
+    ["Quest chain of %s:"] = "%s 的任務鏈：",
+    ["you're here"] = "你在這裡",
 
     -- minimap / addon compartment
     ["%d partner(s) saved"] = "已儲存 %d 位夥伴",
