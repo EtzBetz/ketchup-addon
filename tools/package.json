@@ -1,0 +1,10 @@
+{
+  "private": true,
+  "description": "Dev checks for Quest Ketchup (no Lua interpreter needed)",
+  "scripts": {
+    "check": "node check-lua.js && node check-locales.js"
+  },
+  "dependencies": {
+    "luaparse": "^0.3.1"
+  }
+}

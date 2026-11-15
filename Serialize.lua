@@ -1,4 +1,4 @@
--- Ketchup: encoding of quest snapshots into compact, chat-safe strings.
+-- Quest Ketchup: encoding of quest snapshots into compact, chat-safe strings.
 -- Pipeline: table -> CBOR -> deflate -> Base64.
 local _, ns = ...
 local L = ns.L
@@ -6,7 +6,9 @@ local L = ns.L
 local S = {}
 ns.Serialize = S
 
-S.EXPORT_PREFIX = "KETCHUP1:"
+S.EXPORT_PREFIX = "QUESTKETCHUP1:"
+-- strings exported before the rename still import
+local LEGACY_PREFIXES = { "KETCHUP1:" }
 
 local E = C_EncodingUtil
 
@@ -49,7 +51,10 @@ function S.FromExportString(text)
     if type(text) ~= "string" then return nil, L["no text"] end
     -- Messengers like to wrap lines or add spaces: strip all whitespace.
     text = text:gsub("%s+", "")
-    local start = text:find(S.EXPORT_PREFIX, 1, true)
-    if not start then return nil, L["this is not a Quest Ketchup string (missing %s)"]:format(S.EXPORT_PREFIX) end
-    return S.Decode(text:sub(start + #S.EXPORT_PREFIX))
+    -- "QUESTKETCHUP1:" contains "KETCHUP1:", so try the current prefix first
+    for _, prefix in ipairs({ S.EXPORT_PREFIX, unpack(LEGACY_PREFIXES) }) do
+        local start = text:find(prefix, 1, true)
+        if start then return S.Decode(text:sub(start + #prefix)) end
+    end
+    return nil, L["this is not a Quest Ketchup string (missing %s)"]:format(S.EXPORT_PREFIX)
 end

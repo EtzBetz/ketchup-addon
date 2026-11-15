@@ -1,4 +1,4 @@
--- Ketchup: localization.
+-- Quest Ketchup: localization.
 --
 -- The English text is the key: L["Sync with group"]. A translation file only
 -- has to list what it translates; anything missing falls back to English, so

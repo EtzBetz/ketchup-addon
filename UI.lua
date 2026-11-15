@@ -1,5 +1,5 @@
--- Ketchup: user interface (main window, export/import dialog, minimap & quest log buttons).
-local _, ns = ...
+-- Quest Ketchup: user interface (main window, export/import dialog, minimap & quest log buttons).
+local ADDON, ns = ...
 local K = ns.K
 local S = ns.Serialize
 local Style = ns.Style
@@ -8,7 +8,7 @@ local L = ns.L
 local UI = {}
 K.UI = UI
 
-local ICON = "Interface\\AddOns\\Ketchup\\Media\\Logo" -- 64x64 TGA, full-bleed art
+local ICON = "Interface\\AddOns\\" .. ADDON .. "\\Media\\Logo" -- 64x64 TGA, full-bleed art
 local TABS = {
     { key = "completed", label = L["Done by them, not you"] },
     { key = "log",       label = L["Their quest log"] },
@@ -193,7 +193,7 @@ end
 function UI:Create()
     if self.frame then return end
 
-    local f = CreateFrame("Frame", "KetchupFrame", UIParent)
+    local f = CreateFrame("Frame", "QuestKetchupFrame", UIParent)
     f:SetSize(WIDTH, HEIGHT)
     f:SetPoint("CENTER")
     f:SetFrameStrata("HIGH")
@@ -206,7 +206,7 @@ function UI:Create()
     f:SetScript("OnDragStop", f.StopMovingOrSizing)
     f:SetScript("OnShow", function() UI:Refresh() end)
     f:Hide()
-    tinsert(UISpecialFrames, "KetchupFrame")
+    tinsert(UISpecialFrames, "QuestKetchupFrame")
     Style.Apply("Shell", f, { bottomBar = FOOTER_H })
     self.frame = f
 
@@ -285,7 +285,7 @@ function UI:Create()
     self.removeButton = addButton(L["Remove selected partner"], function()
         local key = K.db.selected
         if key then
-            StaticPopup_Show("KETCHUP_REMOVE_PARTNER", K:ShortName(key), nil, key)
+            StaticPopup_Show("QUESTKETCHUP_REMOVE_PARTNER", K:ShortName(key), nil, key)
         end
     end)
 
@@ -447,8 +447,8 @@ function UI:Create()
 end
 
 function UI:InitPartnerRow(button, data)
-    if not button.ketchupInit then
-        button.ketchupInit = true
+    if not button.questKetchupInit then
+        button.questKetchupInit = true
         local hl = button:CreateTexture(nil, "HIGHLIGHT")
         hl:SetAllPoints()
         hl:SetColorTexture(1, 1, 1, 0.04)
@@ -493,8 +493,8 @@ function UI:InitPartnerRow(button, data)
 end
 
 function UI:InitQuestRow(button, data)
-    if not button.ketchupInit then
-        button.ketchupInit = true
+    if not button.questKetchupInit then
+        button.questKetchupInit = true
         button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
         local hl = button:CreateTexture(nil, "HIGHLIGHT")
         hl:SetAllPoints()
@@ -768,7 +768,7 @@ function UI:RebuildRows()
     end
 end
 
-StaticPopupDialogs["KETCHUP_REMOVE_PARTNER"] = {
+StaticPopupDialogs["QUESTKETCHUP_REMOVE_PARTNER"] = {
     text = L["Remove the saved quest progress of %s?"],
     button1 = YES,
     button2 = NO,
@@ -783,7 +783,7 @@ StaticPopupDialogs["KETCHUP_REMOVE_PARTNER"] = {
 ------------------------------------------------------------------------
 function UI:CreateStringDialog()
     if self.stringDialog then return self.stringDialog end
-    local d = CreateFrame("Frame", "KetchupStringDialog", UIParent)
+    local d = CreateFrame("Frame", "QuestKetchupStringDialog", UIParent)
     d:SetSize(580, 380)
     d:SetPoint("CENTER", 0, 40)
     d:SetFrameStrata("DIALOG")
@@ -795,7 +795,7 @@ function UI:CreateStringDialog()
     d:SetScript("OnDragStart", d.StartMoving)
     d:SetScript("OnDragStop", d.StopMovingOrSizing)
     d:Hide()
-    tinsert(UISpecialFrames, "KetchupStringDialog")
+    tinsert(UISpecialFrames, "QuestKetchupStringDialog")
     Style.Apply("Shell", d, { bottomBar = 44 })
 
     local icon = Canvas(d):CreateTexture(nil, "ARTWORK")
@@ -934,7 +934,7 @@ end
 
 function UI:CreateMinimapButton()
     if self.minimapButton or not Minimap then return end
-    local b = CreateFrame("Button", "KetchupMinimapButton", Minimap)
+    local b = CreateFrame("Button", "QuestKetchupMinimapButton", Minimap)
     b:SetSize(31, 31)
     b:SetFrameStrata("MEDIUM")
     b:SetFrameLevel(8)
@@ -971,7 +971,7 @@ function UI:CreateMinimapButton()
         end)
     end)
     b:SetScript("OnDragStop", function(self) self:SetScript("OnUpdate", nil) end)
-    b:SetScript("OnEnter", function(self) Ketchup_OnAddonCompartmentEnter(nil, self) end)
+    b:SetScript("OnEnter", function(self) QuestKetchup_OnAddonCompartmentEnter(nil, self) end)
     b:SetScript("OnLeave", GameTooltip_Hide)
 
     self.minimapButton = b
@@ -994,7 +994,7 @@ function UI:CreateQuestLogButton()
     local parent = QuestLogFrame or (WorldMapFrame and QuestMapFrame)
     if not parent then return end
 
-    local b = UI.CreateDetached("Button", "KetchupQuestLogButton", parent, "UIPanelButtonTemplate")
+    local b = UI.CreateDetached("Button", "QuestKetchupQuestLogButton", parent, "UIPanelButtonTemplate")
     b:SetSize(80, 20)
     b:SetText(K.NAME)
     local fs = b:GetFontString()
@@ -1109,7 +1109,7 @@ end
 
 local MAX_GROUP_MEMBERS = 8
 
--- Tooltip rows for the group: Ketchup members (full data) first, then the
+-- Tooltip rows for the group: Quest Ketchup members (full data) first, then the
 -- others the client knows to be on the quest (Questie / the game's check).
 -- Each row: { name, cl, state, o = { { t, f } } }, state one of
 -- done / none / ready / progress / onquest.
@@ -1199,7 +1199,7 @@ local function AddChainLines(questID, key, who)
     end
 end
 
--- Adds the Ketchup sync lines for a quest to GameTooltip: the selected
+-- Adds the Quest Ketchup sync lines for a quest to GameTooltip: the selected
 -- partner's sync status, then everyone's progress. While the partner is in
 -- my group they head the group list; otherwise their saved progress gets its
 -- own block. Returns false if there is nothing to say.
@@ -1290,7 +1290,7 @@ local function OnQuestRowEnter(row)
 end
 
 local function GetMarker(button)
-    if button.ketchupMarker then return button.ketchupMarker end
+    if button.questKetchupMarker then return button.questKetchupMarker end
     local m = UI.CreateDetached("Frame", nil, button)
     m:SetSize(14, 14)
     m:SetFrameLevel(button:GetFrameLevel() + 3)
@@ -1301,7 +1301,7 @@ local function GetMarker(button)
     m:SetScript("OnEnter", MarkerTooltip)
     m:SetScript("OnLeave", GameTooltip_Hide)
     m:Hide()
-    button.ketchupMarker = m
+    button.questKetchupMarker = m
     return m
 end
 
@@ -1357,16 +1357,16 @@ local function MarkTitle(fs, questID)
     local size = math.floor((fontSize or 12) + 2) -- same size as in the picked preview
     local new = status and MARKERS[status] and (InlineIcon(status, size) .. base) or base
     if new ~= cur then
-        fs.ketchupSetting = true
+        fs.questKetchupSetting = true
         fs:SetText(new)
-        fs.ketchupSetting = nil
+        fs.questKetchupSetting = nil
     end
 end
 
 -- Runs right after the client sets a row's title, before it measures the
 -- row's height, so the icon is part of the layout instead of overflowing it.
 local function OnTitleSetText(fs)
-    if fs.ketchupSetting then return end
+    if fs.questKetchupSetting then return end
     local ok = pcall(function()
         local row = fs:GetParent()
         local base = StripIcons(fs:GetText() or "")
@@ -1374,7 +1374,7 @@ local function OnTitleSetText(fs)
         local questID = QuestIDForTitle(base) or (row and row.questID)
         MarkTitle(fs, questID)
     end)
-    if not ok then fs.ketchupSetting = nil end
+    if not ok then fs.questKetchupSetting = nil end
 end
 
 local hookedTitles = setmetatable({}, { __mode = "k" })
@@ -1454,9 +1454,9 @@ function UI:UpdateQuestLogMarkers()
                 m:ClearAllPoints()
                 m:SetPoint("RIGHT", button, "RIGHT", -pad, 0)
                 m:Show()
-            elseif button.ketchupMarker then
-                button.ketchupMarker.questID = nil
-                button.ketchupMarker:Hide()
+            elseif button.questKetchupMarker then
+                button.questKetchupMarker.questID = nil
+                button.questKetchupMarker:Hide()
             end
         end
     end
@@ -1501,11 +1501,11 @@ function UI:Init()
     end
 end
 
-function Ketchup_OnAddonCompartmentClick(_, mouse)
+function QuestKetchup_OnAddonCompartmentClick(_, mouse)
     if mouse == "RightButton" then K.Comm:RequestFromGroup() else UI:Toggle() end
 end
 
-function Ketchup_OnAddonCompartmentEnter(_, owner)
+function QuestKetchup_OnAddonCompartmentEnter(_, owner)
     GameTooltip:SetOwner(owner or UIParent, "ANCHOR_LEFT")
     GameTooltip:SetText(K.NAME, 1, 1, 1)
     local n = 0
@@ -1517,6 +1517,6 @@ function Ketchup_OnAddonCompartmentEnter(_, owner)
     GameTooltip:Show()
 end
 
-function Ketchup_OnAddonCompartmentLeave()
+function QuestKetchup_OnAddonCompartmentLeave()
     GameTooltip:Hide()
 end

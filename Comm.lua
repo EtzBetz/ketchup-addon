@@ -1,6 +1,6 @@
--- Ketchup: addon-message transport (chunking, throttled queue, reassembly).
+-- Quest Ketchup: addon-message transport (chunking, throttled queue, reassembly).
 --
--- Messages (prefix "Ketchup", tab separated):
+-- Messages (prefix "QuestKetchup", tab separated):
 --   R                          request: "please send me your progress"
 --   D <msgid> <i> <n> <data>   chunk i of n of an encoded snapshot
 local _, ns = ...
@@ -11,7 +11,10 @@ local L = ns.L
 local Comm = {}
 K.Comm = Comm
 
-local PREFIX = "Ketchup"
+local PREFIX = "QuestKetchup"
+-- Versions before the rename used "Ketchup": still listen there, so their
+-- progress keeps arriving (they can't hear us until they update).
+local LEGACY_PREFIX = "Ketchup"
 local CHUNK_SIZE = 220            -- addon messages are limited to 255 bytes
 local SEND_INTERVAL = 0.2
 local RETRY_DELAY = 1.0
@@ -78,11 +81,12 @@ end
 function Comm:Init()
     if C_ChatInfo.RegisterAddonMessagePrefix then
         C_ChatInfo.RegisterAddonMessagePrefix(PREFIX)
+        C_ChatInfo.RegisterAddonMessagePrefix(LEGACY_PREFIX)
     end
     local f = CreateFrame("Frame")
     f:RegisterEvent("CHAT_MSG_ADDON")
     f:SetScript("OnEvent", function(_, _, prefix, text, channel, sender)
-        if prefix == PREFIX then Comm:OnMessage(text, channel, sender) end
+        if prefix == PREFIX or prefix == LEGACY_PREFIX then Comm:OnMessage(text, channel, sender) end
     end)
 end
 

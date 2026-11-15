@@ -1,13 +1,13 @@
--- Ketchup: core state, quest snapshots, diffing and events.
+-- Quest Ketchup: core state, quest snapshots, diffing and events.
 local ADDON, ns = ...
 local L = ns.L
 
 local K = {}
 ns.K = K
-_G.Ketchup = K
+_G.QuestKetchup = K
 
-K.ADDON = ADDON
-K.NAME = "Quest Ketchup" -- displayed name (folder, saved data and sync channel stay "Ketchup")
+K.ADDON = ADDON -- folder name ("QuestKetchup")
+K.NAME = "Quest Ketchup" -- displayed name
 K.PROTOCOL = 1
 K.version = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON, "Version"))
     or (GetAddOnMetadata and GetAddOnMetadata(ADDON, "Version")) or "?"
@@ -17,7 +17,7 @@ local DEFAULTS = {
     ignored = {},   -- [ questID ] = true, hidden from all lists unless "show ignored"
     selected = nil, -- currently selected partner key
     settings = {
-        autoShare = true,        -- broadcast my progress to group members running Ketchup
+        autoShare = true,        -- broadcast my progress to group members running Quest Ketchup
         onlyDoable = false,      -- Questie: only show quests I can currently pick up
         hideInMyLog = false,     -- hide "completed" entries that are already in my log
         showIgnored = false,
@@ -699,14 +699,14 @@ function K:IsQuestingTogether(key, questID)
     return true
 end
 
--- Partners currently in my group that run Ketchup (seen a message from them)
+-- Partners currently in my group that run Quest Ketchup (seen a message from them)
 K.online = {}
 
 function K:IsPartnerOnline(key)
     return self.online[key] and self:FindGroupUnit(key) ~= nil
 end
 
--- Group members whose Ketchup data I have, as { key, unit, p }, in group
+-- Group members whose Quest Ketchup data I have, as { key, unit, p }, in group
 -- order. One entry per member (older saves can hold the same character under
 -- two keys: the newest wins). excludeKey (the selected partner) is left out.
 function K:GroupPartners(excludeKey)
@@ -770,7 +770,7 @@ local function ObjectiveText(mine, have, need)
     return replaced
 end
 
--- Group members without Ketchup data (units not in skipUnits) that I know to
+-- Group members without Quest Ketchup data (units not in skipUnits) that I know to
 -- be on this quest: Questie's shared progress if they run Questie, else the
 -- game's own check, which only works on my map instance and has no counts.
 -- Returns { name, cl, state = "ready" | "progress" | "onquest", o = { { t, f } } }.
@@ -977,9 +977,9 @@ local handlers = {}
 
 function handlers.ADDON_LOADED(name)
     if name ~= ADDON then return end
-    KetchupDB = KetchupDB or {}
-    ApplyDefaults(KetchupDB, DEFAULTS)
-    K.db = KetchupDB
+    QuestKetchupDB = QuestKetchupDB or {}
+    ApplyDefaults(QuestKetchupDB, DEFAULTS)
+    K.db = QuestKetchupDB
 end
 
 function handlers.PLAYER_LOGIN()
@@ -1027,9 +1027,10 @@ end
 ------------------------------------------------------------------------
 -- Slash command
 ------------------------------------------------------------------------
-SLASH_KETCHUP1 = "/ketchup"
-SLASH_KETCHUP2 = "/ketch"
-SlashCmdList.KETCHUP = function(msg)
+SLASH_QUESTKETCHUP1 = "/ketchup"
+SLASH_QUESTKETCHUP2 = "/questketchup"
+SLASH_QUESTKETCHUP3 = "/ketch"
+SlashCmdList.QUESTKETCHUP = function(msg)
     msg = (msg or ""):lower():match("^%s*(.-)%s*$")
     if msg == "sync" or msg == "request" then
         K.Comm:RequestFromGroup()

@@ -1,15 +1,15 @@
--- Ketchup: visual style.
+-- Quest Ketchup: visual style.
 --
--- With EllesmereUI installed, Ketchup's frames are painted through its
+-- With EllesmereUI installed, Quest Ketchup's frames are painted through its
 -- official skinning API (SKINNING_API.md), so they match the user's theme and
 -- follow live accent color changes. Without it (or with third-party skinning
--- turned off for Ketchup in EllesmereUI's options), a built-in flat dark
+-- turned off for Quest Ketchup in EllesmereUI's options), a built-in flat dark
 -- style with the same shapes is used instead.
 --
 -- UI code only ever calls Style.Apply("<Primitive>", frame, ...). The choice
 -- between the two backends is made once, at login, before anything is
 -- painted, so a frame never gets both looks.
-local _, ns = ...
+local ADDON, ns = ...
 local K = ns.K
 
 local Style = {}
@@ -292,7 +292,7 @@ local function Decide()
 end
 
 if EllesmereUI and EllesmereUI.RegisterSkin then
-    EllesmereUI.RegisterSkin("Ketchup", function(S)
+    EllesmereUI.RegisterSkin(ADDON, function(S)
         if decided then return end -- too late: frames already have the built-in look
         eui = S
         if S.OnLooksChanged then
