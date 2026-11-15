@@ -262,7 +262,7 @@ function UI:Create()
     emptyPartners:SetPoint("TOPLEFT", partnerBox, "TOPLEFT", 6, -8)
     emptyPartners:SetPoint("RIGHT", partnerBox, "RIGHT", -6, 0)
     emptyPartners:SetWordWrap(true)
-    emptyPartners:SetText(L["No partner data yet.\n\nGroup up with your friend or import the string they exported. You both need Ketchup (fast)."])
+    emptyPartners:SetText(L["No partner data yet.\n\nGroup up with your friend or import the string they exported. You both need Quest Ketchup."])
     self.emptyPartners = emptyPartners
 
     local actionsLabel = SectionLabel(side, L["ACTIONS"])
@@ -277,7 +277,7 @@ function UI:Create()
         return b
     end
     addButton(L["Sync with group"], function() K.Comm:RequestFromGroup() end,
-        L["Ask every group member running Ketchup (fast) for their current progress, and send yours."])
+        L["Ask every group member running Quest Ketchup for their current progress, and send yours."])
     addButton(L["Export my progress"], function() UI:ShowExport() end,
         L["Create a string with your quest progress that you can paste to your partner over any messenger."])
     addButton(L["Import string"], function() UI:ShowImport() end,
@@ -293,7 +293,7 @@ function UI:Create()
     settingsLabel:SetPoint("TOPLEFT", 12, y - 10)
 
     local auto = MakeCheck(side, L["Auto-share while grouped"],
-        L["Automatically send your progress to group members running Ketchup (fast) whenever your quests change."],
+        L["Automatically send your progress to group members running Quest Ketchup whenever your quests change."],
         function() return K.db.settings.autoShare end,
         function(v) K.db.settings.autoShare = v; if v then K:ScheduleShare(1, true) end end)
     auto:SetPoint("TOPLEFT", 10, y - 26)

@@ -7,7 +7,7 @@ ns.K = K
 _G.Ketchup = K
 
 K.ADDON = ADDON
-K.NAME = "Ketchup (fast)" -- displayed name (folder, saved data and sync channel stay "Ketchup")
+K.NAME = "Quest Ketchup" -- displayed name (folder, saved data and sync channel stay "Ketchup")
 K.PROTOCOL = 1
 K.version = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON, "Version"))
     or (GetAddOnMetadata and GetAddOnMetadata(ADDON, "Version")) or "?"
@@ -217,7 +217,7 @@ local function SanitizeSnapshot(s)
         return nil, L["malformed snapshot"]
     end
     if tonumber(s.v) ~= K.PROTOCOL then
-        return nil, L["incompatible Ketchup (fast) version (protocol %s)"]:format(tostring(s.v))
+        return nil, L["incompatible Quest Ketchup version (protocol %s)"]:format(tostring(s.v))
     end
     local out = {
         v = K.PROTOCOL,
