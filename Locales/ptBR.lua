@@ -159,6 +159,7 @@ ns.RegisterLocale("ptBR ptPT", {
     ["turned it in"] = "entregue",
     ["doesn't have it"] = "não tem",
     ["in progress"] = "em andamento",
+    ["has the quest"] = "tem a missão",
 
     -- minimap / addon compartment
     ["%d partner(s) saved"] = "%d parceiro(s) salvo(s)",

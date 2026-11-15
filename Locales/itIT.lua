@@ -158,6 +158,7 @@ ns.RegisterLocale("itIT", {
     ["turned it in"] = "consegnata",
     ["doesn't have it"] = "non ce l'ha",
     ["in progress"] = "in corso",
+    ["has the quest"] = "ha la missione",
 
     -- minimap / addon compartment
     ["%d partner(s) saved"] = "%d compagni salvati",

@@ -158,6 +158,7 @@ ns.RegisterLocale("ruRU", {
     ["turned it in"] = "сдано",
     ["doesn't have it"] = "нет задания",
     ["in progress"] = "в процессе",
+    ["has the quest"] = "есть задание",
 
     -- minimap / addon compartment
     ["%d partner(s) saved"] = "Сохранено напарников: %d",

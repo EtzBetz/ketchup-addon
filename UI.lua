@@ -1109,28 +1109,53 @@ end
 
 local MAX_GROUP_MEMBERS = 8
 
--- Progress of the other group members running Ketchup on this quest.
-local function AddGroupLines(questID, members)
+-- Tooltip rows for the group: Ketchup members (full data) first, then the
+-- others the client knows to be on the quest (Questie / the game's check).
+-- Each row: { name, cl, state, o = { { t, f } } }, state one of
+-- done / none / ready / progress / onquest.
+local function GroupRows(questID, members)
+    local rows, covered = {}, {}
+    for _, m in ipairs(members) do
+        covered[m.unit] = true
+        local row = { name = m.p.n ~= "" and m.p.n or K:ShortName(m.key), cl = m.p.cl, o = {} }
+        local state, pq = K:PartnerQuestState(m.key, questID)
+        if state ~= "active" then
+            row.state = state
+        elseif pq.c == 1 then
+            row.state = "ready"
+        else
+            row.state = "progress"
+            for j, o in ipairs(pq.o or {}) do
+                row.o[j] = { t = o.t ~= "" and o.t or (o.h .. "/" .. o.n), f = o.f == 1 }
+            end
+        end
+        rows[#rows + 1] = row
+    end
+    for _, row in ipairs(K:OtherGroupProgress(questID, covered)) do rows[#rows + 1] = row end
+    return rows
+end
+
+local ROW_STATE = {
+    done     = { L["turned it in"],     1, 0.65, 0.15 },
+    none     = { L["doesn't have it"],  0.6, 0.6, 0.6 },
+    ready    = { L["ready to turn in"], 0.2, 1, 0.2 },
+    progress = { L["in progress"],      1, 0.82, 0 },
+    onquest  = { L["has the quest"],    1, 0.82, 0 },
+}
+
+local function AddGroupLines(rows)
     GameTooltip:AddLine(L["Group members:"], 0.4, 0.8, 1)
-    for i, m in ipairs(members) do
+    for i, row in ipairs(rows) do
         if i > MAX_GROUP_MEMBERS then
-            GameTooltip:AddLine("  " .. L["+%d more"]:format(#members - MAX_GROUP_MEMBERS), 0.6, 0.6, 0.6)
+            GameTooltip:AddLine("  " .. L["+%d more"]:format(#rows - MAX_GROUP_MEMBERS), 0.6, 0.6, 0.6)
             break
         end
-        local name = "  " .. K:ClassColored(m.p.n ~= "" and m.p.n or K:ShortName(m.key), m.p.cl)
-        local state, pq = K:PartnerQuestState(m.key, questID)
-        if state == "done" then
-            GameTooltip:AddDoubleLine(name, L["turned it in"], 1, 1, 1, 1, 0.65, 0.15)
-        elseif state == "none" then
-            GameTooltip:AddDoubleLine(name, L["doesn't have it"], 1, 1, 1, 0.6, 0.6, 0.6)
-        elseif pq.c == 1 then
-            GameTooltip:AddDoubleLine(name, L["ready to turn in"], 1, 1, 1, 0.2, 1, 0.2)
-        else
-            GameTooltip:AddDoubleLine(name, L["in progress"], 1, 1, 1, 1, 0.82, 0)
-            for _, o in ipairs(pq.o or {}) do
-                local done = o.f == 1
-                local text = o.t ~= "" and o.t or (o.h .. "/" .. o.n)
-                GameTooltip:AddLine("      " .. text, done and 0.5 or 0.9, done and 0.5 or 0.9, done and 0.5 or 0.9)
+        local s = ROW_STATE[row.state] or ROW_STATE.progress
+        GameTooltip:AddDoubleLine("  " .. K:ClassColored(row.name, row.cl), s[1], 1, 1, 1, s[2], s[3], s[4])
+        if row.state == "progress" then
+            for _, o in ipairs(row.o) do
+                local c = o.f and 0.5 or 0.9
+                GameTooltip:AddLine("      " .. o.t, c, c, c)
             end
         end
     end
@@ -1147,7 +1172,8 @@ local function AddSyncLines(questID, asSection)
     if partnerUnit then
         table.insert(members, 1, { key = key, unit = partnerUnit, p = K:GetPartner(key) })
     end
-    if not status and #members == 0 then return false end
+    local rows = GroupRows(questID, members)
+    if not status and #rows == 0 then return false end
     if asSection then
         GameTooltip:AddLine(" ")
         GameTooltip:AddLine(K.NAME, 1, 0.55, 0.3)
@@ -1155,7 +1181,7 @@ local function AddSyncLines(questID, asSection)
         GameTooltip:SetText(K.NAME, 1, 1, 1)
     end
     if not status then
-        AddGroupLines(questID, members)
+        AddGroupLines(rows)
         return true
     end
     local who = K:ShortName(key)
@@ -1179,7 +1205,7 @@ local function AddSyncLines(questID, asSection)
     end
     if partnerUnit then
         GameTooltip:AddLine(" ")
-        AddGroupLines(questID, members)
+        AddGroupLines(rows)
         return true
     end
     if pq then
@@ -1197,9 +1223,9 @@ local function AddSyncLines(questID, asSection)
         end
     end
     GameTooltip:AddLine(L["Their data is from %s."]:format(p and Ago(p.ts) or "?"), 0.6, 0.6, 0.6)
-    if #members > 0 then
+    if #rows > 0 then
         GameTooltip:AddLine(" ")
-        AddGroupLines(questID, members)
+        AddGroupLines(rows)
     end
     return true
 end

@@ -158,6 +158,7 @@ ns.RegisterLocale("deDE", {
     ["turned it in"] = "abgegeben",
     ["doesn't have it"] = "hat sie nicht",
     ["in progress"] = "in Arbeit",
+    ["has the quest"] = "hat die Quest",
 
     -- minimap / addon compartment
     ["%d partner(s) saved"] = "%d Partner gespeichert",

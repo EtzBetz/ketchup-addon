@@ -159,6 +159,7 @@ ns.RegisterLocale("esES esMX", {
     ["turned it in"] = "entregada",
     ["doesn't have it"] = "no la tiene",
     ["in progress"] = "en curso",
+    ["has the quest"] = "tiene la misión",
 
     -- minimap / addon compartment
     ["%d partner(s) saved"] = "%d compañero(s) guardado(s)",

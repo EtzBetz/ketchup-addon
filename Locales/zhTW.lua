@@ -158,6 +158,7 @@ ns.RegisterLocale("zhTW", {
     ["turned it in"] = "已交任務",
     ["doesn't have it"] = "沒有此任務",
     ["in progress"] = "進行中",
+    ["has the quest"] = "有此任務",
 
     -- minimap / addon compartment
     ["%d partner(s) saved"] = "已儲存 %d 位夥伴",

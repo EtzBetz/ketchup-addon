@@ -158,6 +158,7 @@ ns.RegisterLocale("koKR", {
     ["turned it in"] = "완료함",
     ["doesn't have it"] = "퀘스트 없음",
     ["in progress"] = "진행 중",
+    ["has the quest"] = "퀘스트 보유",
 
     -- minimap / addon compartment
     ["%d partner(s) saved"] = "저장된 파트너 %d명",

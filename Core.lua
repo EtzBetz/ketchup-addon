@@ -738,6 +738,75 @@ function K:PartnerQuestState(key, questID)
     return "none"
 end
 
+-- Questie shares each group member's quest progress with the group:
+-- remoteQuestLogs[questID][senderName] = { { fulfilled, required, finished }, ... }
+local function QuestieRemoteLog(questID)
+    if not (QuestieLoader and QuestieLoader.ImportModule) then return nil end
+    local ok, comms = pcall(QuestieLoader.ImportModule, QuestieLoader, "QuestieComms")
+    local logs = ok and type(comms) == "table" and comms.remoteQuestLogs
+    return type(logs) == "table" and logs[questID] or nil
+end
+
+-- Questie's entry for a group unit. Sender names can carry a surname and a
+-- realm that differs from the roster's (WoW Forever), so fall back to the
+-- first name.
+local function QuestieEntryFor(remote, unit)
+    local name = UnitName(unit)
+    for sender, objectives in pairs(remote) do
+        local ok, same = pcall(UnitIsUnit, sender, unit)
+        if (ok and same) or (name and FirstName(SplitKey(sender)) == FirstName(name)) then
+            return objectives
+        end
+    end
+end
+
+-- Objective text for someone else's progress: my own objective text with
+-- their counts ("Kluftmoosei: 0/15" -> "Kluftmoosei: 4/15").
+local function ObjectiveText(mine, have, need)
+    local text = mine and mine.t or ""
+    if text == "" then return have .. "/" .. need end
+    local replaced, n = text:gsub("%d+%s*/%s*%d+", have .. "/" .. need, 1)
+    if n == 0 and need > 1 then replaced = text .. " " .. have .. "/" .. need end
+    return replaced
+end
+
+-- Group members without Ketchup data (units not in skipUnits) that I know to
+-- be on this quest: Questie's shared progress if they run Questie, else the
+-- game's own check, which only works on my map instance and has no counts.
+-- Returns { name, cl, state = "ready" | "progress" | "onquest", o = { { t, f } } }.
+function K:OtherGroupProgress(questID, skipUnits)
+    local list = {}
+    if not IsInGroup() then return list end
+    local remote = QuestieRemoteLog(questID)
+    local mine = (self.lastMyLog or self:GetMyLog())[questID]
+    local prefix, count = "party", GetNumSubgroupMembers()
+    if IsInRaid() then prefix, count = "raid", GetNumGroupMembers() end
+    for i = 1, count do
+        local unit = prefix .. i
+        if UnitExists(unit) and not UnitIsUnit(unit, "player") and not skipUnits[unit] then
+            local entry = remote and QuestieEntryFor(remote, unit)
+            local row
+            if type(entry) == "table" and #entry > 0 then
+                row = { state = "ready", o = {} }
+                for j, o in ipairs(entry) do
+                    local have, need = tonumber(o.fulfilled) or 0, tonumber(o.required) or 0
+                    local done = o.finished and true or (need > 0 and have >= need)
+                    if not done then row.state = "progress" end
+                    row.o[j] = { t = ObjectiveText(mine and mine.o[j], have, need), f = done }
+                end
+            elseif C_QuestLog.IsUnitOnQuest and C_QuestLog.IsUnitOnQuest(unit, questID) then
+                row = { state = "onquest", o = {} }
+            end
+            if row then
+                local _, class = UnitClass(unit)
+                row.name, row.cl = UnitName(unit) or "?", class
+                list[#list + 1] = row
+            end
+        end
+    end
+    return list
+end
+
 ------------------------------------------------------------------------
 -- Auto-sharing
 ------------------------------------------------------------------------
