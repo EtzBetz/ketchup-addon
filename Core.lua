@@ -567,15 +567,16 @@ function K:CheckProgress()
 
     local key = self.db.selected
     if not key or not self:GetPartner(key) then return end
-    local together, reason = self:IsQuestingTogether(key)
-    if together then return end
 
     for id, q in pairs(now) do
         local old = before[id]
         if old and Progressed(old, q) then
             local status, pq = self:GetSyncStatus(id)
             if status == "together" or status == "ahead" then
-                self:WarnStop(id, q.t ~= "" and q.t or L["Quest #%d"]:format(id), key, pq, reason)
+                local together, reason = self:IsQuestingTogether(key, id)
+                if not together then
+                    self:WarnStop(id, q.t ~= "" and q.t or L["Quest #%d"]:format(id), key, pq, reason)
+                end
             end
         end
     end
@@ -657,7 +658,18 @@ local function ZoneMapID(mapID)
     return mapID
 end
 
+-- Near enough that the client sees them (~100 yards) or within group range.
+local function Nearby(unit)
+    if UnitIsVisible and UnitIsVisible(unit) then return true end
+    if UnitInRange then
+        local inRange, checked = UnitInRange(unit)
+        if inRange and checked then return true end
+    end
+    return false
+end
+
 local function SameArea(unit)
+    if Nearby(unit) then return true end
     if not (C_Map and C_Map.GetBestMapForUnit) then return true end -- can't tell: don't nag
     local mine, theirs = C_Map.GetBestMapForUnit("player"), C_Map.GetBestMapForUnit(unit)
     if not mine or not theirs then return false end -- e.g. they're in another instance
@@ -671,11 +683,18 @@ local function SameArea(unit)
 end
 
 -- Are we questing together right now? In my group, online and in the same zone.
+-- With a questID, the game's own party check counts too: it only reports a
+-- group member on the quest while they share my map instance (it drives the
+-- "[N]" party count in the quest log).
 -- Returns together (bool), reason (format string taking the partner name, when not together).
-function K:IsQuestingTogether(key)
+function K:IsQuestingTogether(key, questID)
     local unit = self:FindGroupUnit(key)
     if not unit then return false, L["%s is not in your group"] end
     if not UnitIsConnected(unit) then return false, L["%s is offline"] end
+    if questID and C_QuestLog and C_QuestLog.IsUnitOnQuest
+        and C_QuestLog.IsUnitOnQuest(unit, questID) then
+        return true
+    end
     if not SameArea(unit) then return false, L["%s is in another zone"] end
     return true
 end
